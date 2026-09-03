@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
 import { bookToken, listenQueueToday, cancelToken } from "../../lib/queue";
-import { db, auth } from "../../lib/firebase";
-import { doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
-import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { db } from "../../lib/firebase";
+import { doc, onSnapshot, getDoc } from "firebase/firestore";
 
 export default function CustomerPage() {
-  const { user, role, loading, logout } = useAuth();
+  const { user, role, loading } = useAuth();
   const router = useRouter();
 
   const [queue, setQueue] = useState([]);
@@ -18,18 +17,7 @@ export default function CustomerPage() {
   const [booking, setBooking] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState("");
-
-  // Profile Edit States
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [photoURL, setPhotoURL] = useState("");
-  const [imageFile, setImageFile] = useState(null);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [profileMsg, setProfileMsg] = useState("");
-  const [profileError, setProfileError] = useState("");
-  const [updatingProfile, setUpdatingProfile] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -41,16 +29,10 @@ export default function CustomerPage() {
   useEffect(() => {
     async function loadUserData() {
       if (!user) return;
-      setName(user.displayName || "");
-
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setPhone(data.phone || "");
-          if (data.photoURL) {
-            setPhotoURL(data.photoURL);
-          }
+        if (userDoc.exists() && userDoc.data().photoURL) {
+          setPhotoURL(userDoc.data().photoURL);
         }
       } catch (e) {
         console.error("Error loading user data:", e);
@@ -81,15 +63,6 @@ export default function CustomerPage() {
     const unsub = listenQueueToday(setQueue);
     return () => unsub();
   }, []);
-
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
-  };
 
   if (loading || !user) {
     return (
@@ -171,88 +144,51 @@ export default function CustomerPage() {
     setCanceling(false);
   }
 
-  async function handleProfileUpdate(e) {
-    e.preventDefault();
-    setUpdatingProfile(true);
-    setProfileMsg("");
-    setProfileError("");
-
-    try {
-      let updatedPhotoURL = photoURL;
-
-      if (imageFile) {
-        if (imageFile.size > 800 * 1024) {
-          throw new Error("Image size is too large. Please select an image under 800KB.");
-        }
-        updatedPhotoURL = await convertToBase64(imageFile);
-        setPhotoURL(updatedPhotoURL);
-      }
-
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
-        displayName: name,
-        phone: phone,
-        photoURL: updatedPhotoURL,
-      });
-
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, {
-          displayName: name,
-        });
-      }
-
-      // Sync active tokens in current queue
-      const myActiveTokens = queue.filter((t) => t.customerUid === user.uid);
-      for (const t of myActiveTokens) {
-        const tokenDocRef = doc(db, "tokens", t.id);
-        await updateDoc(tokenDocRef, {
-          customerName: name,
-          customerPhotoURL: updatedPhotoURL,
-        });
-      }
-
-      if (currentPassword && newPassword) {
-        const credential = EmailAuthProvider.credential(user.email, currentPassword);
-        await reauthenticateWithCredential(auth.currentUser, credential);
-        await updatePassword(auth.currentUser, newPassword);
-        setCurrentPassword("");
-        setNewPassword("");
-      }
-
-      setProfileMsg("Profile updated successfully!");
-    } catch (err) {
-      setProfileError("Update failed: " + err.message);
-    }
-    setUpdatingProfile(false);
-  }
-
   return (
     <div className="shell">
-      <div className="topbar">
+      {/* Topbar with Avatar Linking to Profile Page */}
+      <div className="topbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div className="brand" style={{ marginBottom: 0 }}>
           salon<span>queue</span>
         </div>
-        <div className="who" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+
+        {/* Profile Avatar Button */}
+        <div
+          onClick={() => router.push("/customer/profile")}
+          style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+          title="Go to Profile Settings"
+        >
           {photoURL ? (
             <img
               src={photoURL}
               alt="Profile"
-              style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                objectFit: "cover",
+                border: "2px solid #e4ddc7",
+              }}
             />
           ) : (
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#ccc" }} />
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                background: "#4a5568",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: "bold",
+                fontSize: 16,
+                border: "2px solid #e4ddc7",
+              }}
+            >
+              {user.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
+            </div>
           )}
-          <strong>{name || user.displayName || user.email}</strong>
-          <button
-            onClick={() => setShowProfileModal(true)}
-            style={{ background: "#4a5568", color: "#fff", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}
-          >
-            Edit Profile
-          </button>
-          ·{" "}
-          <a href="#" onClick={logout} style={{ color: "#e4ddc7" }}>
-            Log out
-          </a>
         </div>
       </div>
 
@@ -334,7 +270,6 @@ export default function CustomerPage() {
               key={t.id}
               style={{ display: "flex", alignItems: "center", gap: 12, opacity: t.status === "cancelled" ? 0.85 : 1 }}
             >
-              {/* Profile Photo (Token Number එකට කලින්) */}
               {t.customerPhotoURL ? (
                 <img
                   src={t.customerPhotoURL}
@@ -360,10 +295,8 @@ export default function CustomerPage() {
                 </div>
               )}
 
-              {/* Token Number */}
               <div className="n">#{t.tokenNumber}</div>
 
-              {/* Info Section */}
               <div className="info" style={{ flex: 1 }}>
                 <div className="svc" style={t.status === "cancelled" ? { textDecoration: "line-through", color: "#888" } : {}}>
                   {t.service}
@@ -373,7 +306,6 @@ export default function CustomerPage() {
                 </div>
               </div>
 
-              {/* Status Tag */}
               {t.status === "cancelled" ? (
                 <span
                   style={{
@@ -399,59 +331,6 @@ export default function CustomerPage() {
           ))}
         </div>
       </div>
-
-      {/* Edit Profile Modal */}
-      {showProfileModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
-          <div style={{ background: "#fff", padding: 25, borderRadius: 8, maxWidth: 450, width: "90%", maxHeight: "90vh", overflowY: "auto", color: "#333" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
-              <h3 style={{ margin: 0 }}>Edit Profile</h3>
-              <button onClick={() => setShowProfileModal(false)} style={{ border: "none", background: "none", fontSize: 18, cursor: "pointer" }}>✕</button>
-            </div>
-
-            {profileMsg && <p style={{ color: "green", fontSize: 14 }}>{profileMsg}</p>}
-            {profileError && <p style={{ color: "red", fontSize: 14 }}>{profileError}</p>}
-
-            <form onSubmit={handleProfileUpdate} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ textAlign: "center" }}>
-                {photoURL ? (
-                  <img src={photoURL} alt="Profile" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", margin: "0 auto" }} />
-                ) : (
-                  <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#ccc", margin: "0 auto" }} />
-                )}
-                <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} style={{ marginTop: 8, fontSize: 12 }} />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: "bold" }}>Name</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required style={{ width: "100%", padding: 8, marginTop: 2 }} />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: "bold" }}>Phone Number</label>
-                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} required style={{ width: "100%", padding: 8, marginTop: 2 }} />
-              </div>
-
-              <hr style={{ margin: "10px 0" }} />
-              <p style={{ margin: 0, fontSize: 12, fontWeight: "bold" }}>Change Password (Optional)</p>
-
-              <div>
-                <label style={{ fontSize: 12 }}>Current Password</label>
-                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 2 }} />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12 }}>New Password</label>
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 2 }} />
-              </div>
-
-              <button type="submit" disabled={updatingProfile} style={{ padding: 10, backgroundColor: "#2b5329", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", marginTop: 10 }}>
-                {updatingProfile ? "Updating..." : "Save Changes"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

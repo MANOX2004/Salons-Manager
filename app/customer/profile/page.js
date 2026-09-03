@@ -1,173 +1,285 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
-import { updateUserProfile, uploadProfilePicture, changeUserPassword } from "../../../lib/profile";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../../lib/firebase";
+import { db, auth } from "../../../lib/firebase";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 
 export default function ProfilePage() {
-    const { user } = useAuth();
+    const { user, role, loading, logout } = useAuth();
+    const router = useRouter();
 
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
     const [photoURL, setPhotoURL] = useState("");
     const [imageFile, setImageFile] = useState(null);
-
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
 
-    const [loading, setLoading] = useState(false);
-    const [msg, setMsg] = useState("");
-    const [error, setError] = useState("");
+    const [profileMsg, setProfileMsg] = useState("");
+    const [profileError, setProfileError] = useState("");
+    const [updating, setUpdating] = useState(false);
 
-    // Firestore එකෙන් දැනට පවතින Customer details ලබා ගැනීම
+    useEffect(() => {
+        if (loading) return;
+        if (!user || role !== "customer") {
+            router.replace("/login");
+        }
+    }, [user, role, loading, router]);
+
     useEffect(() => {
         async function loadUserData() {
             if (!user) return;
             setName(user.displayName || "");
-            setPhotoURL(user.photoURL || "");
 
-            const userDoc = await getDoc(doc(db, "users", user.uid));
-            if (userDoc.exists()) {
-                setPhone(userDoc.data().phone || "");
+            try {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    setPhone(data.phone || "");
+                    if (data.photoURL) {
+                        setPhotoURL(data.photoURL);
+                    }
+                }
+            } catch (e) {
+                console.error("Error fetching profile details:", e);
             }
         }
         loadUserData();
     }, [user]);
 
-    // Profile Info & Picture Update Handler
+    const convertToBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = (error) => reject(error);
+        });
+    };
+
     async function handleProfileUpdate(e) {
         e.preventDefault();
-        setLoading(true);
-        setMsg("");
-        setError("");
+        setUpdating(true);
+        setProfileMsg("");
+        setProfileError("");
 
         try {
             let updatedPhotoURL = photoURL;
 
-            // පින්තූරයක් තෝරා ඇත්නම් Upload කිරීම
             if (imageFile) {
-                updatedPhotoURL = await uploadProfilePicture(imageFile, user.uid);
+                if (imageFile.size > 800 * 1024) {
+                    throw new Error("Image size is too large. Please select an image under 800KB.");
+                }
+                updatedPhotoURL = await convertToBase64(imageFile);
                 setPhotoURL(updatedPhotoURL);
             }
 
-            await updateUserProfile(user.uid, {
-                name,
-                phone,
+            const userRef = doc(db, "users", user.uid);
+            await updateDoc(userRef, {
+                displayName: name,
+                phone: phone,
                 photoURL: updatedPhotoURL,
             });
 
-            setMsg("Profile updated successfully!");
+            if (auth.currentUser) {
+                await updateProfile(auth.currentUser, {
+                    displayName: name,
+                });
+            }
+
+            if (currentPassword && newPassword) {
+                const credential = EmailAuthProvider.credential(user.email, currentPassword);
+                await reauthenticateWithCredential(auth.currentUser, credential);
+                await updatePassword(auth.currentUser, newPassword);
+                setCurrentPassword("");
+                setNewPassword("");
+            }
+
+            setProfileMsg("Profile updated successfully!");
         } catch (err) {
-            setError("Failed to update profile: " + err.message);
+            setProfileError("Update failed: " + err.message);
         }
-        setLoading(false);
+        setUpdating(false);
     }
 
-    // Password Change Handler
-    async function handlePasswordChange(e) {
-        e.preventDefault();
-        setLoading(true);
-        setMsg("");
-        setError("");
-
-        try {
-            await changeUserPassword(currentPassword, newPassword);
-            setMsg("Password changed successfully!");
-            setCurrentPassword("");
-            setNewPassword("");
-        } catch (err) {
-            setError("Failed to change password: " + err.message);
-        }
-        setLoading(false);
+    if (loading || !user) {
+        return (
+            <div className="shell">
+                <p style={{ color: "#cdd8cf", padding: 20 }}>Loading...</p>
+            </div>
+        );
     }
 
     return (
-        <div style={{ maxWidth: 500, margin: "20px auto", padding: 20, background: "#f1e9d8", borderRadius: 8 }}>
-            <h2>Edit Profile</h2>
-
-            {msg && <p style={{ color: "green", fontWeight: "bold" }}>{msg}</p>}
-            {error && <p style={{ color: "red", fontWeight: "bold" }}>{error}</p>}
-
-            {/* Profile Details Form */}
-            <form onSubmit={handleProfileUpdate} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ textAlign: "center" }}>
-                    {photoURL ? (
-                        <img
-                            src={photoURL}
-                            alt="Profile"
-                            style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover", marginBottom: 10 }}
-                        />
-                    ) : (
-                        <div style={{ width: 100, height: 100, borderRadius: "50%", background: "#ccc", margin: "0 auto 10px auto" }} />
-                    )}
-                    <br />
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => setImageFile(e.target.files[0])}
-                    />
-                </div>
-
-                <div>
-                    <label style={{ display: "block", fontWeight: "bold" }}>Name:</label>
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                        style={{ width: "100%", padding: 8, marginTop: 4 }}
-                    />
-                </div>
-
-                <div>
-                    <label style={{ display: "block", fontWeight: "bold" }}>Phone Number:</label>
-                    <input
-                        type="text"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        required
-                        style={{ width: "100%", padding: 8, marginTop: 4 }}
-                    />
-                </div>
-
-                <button type="submit" disabled={loading} style={{ padding: "10px 15px", cursor: "pointer" }}>
-                    {loading ? "Saving..." : "Save Profile"}
+        <div className="shell">
+            {/* Topbar with exact center alignment */}
+            <div
+                className="topbar"
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto 1fr",
+                    alignItems: "center",
+                    padding: "12px 16px",
+                }}
+            >
+                {/* Compact Back Button */}
+                <button
+                    onClick={() => router.push("/customer")}
+                    style={{
+                        background: "rgba(255, 255, 255, 0.1)",
+                        border: "1px solid rgba(228, 221, 199, 0.3)",
+                        color: "#e4ddc7",
+                        fontSize: 13,
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "5px 10px",
+                        borderRadius: 6,
+                        justifySelf: "start",
+                        transition: "all 0.2s ease",
+                    }}
+                >
+                    ‹ Back
                 </button>
-            </form>
 
-            <hr style={{ margin: "25px 0" }} />
-
-            {/* Password Change Form */}
-            <h3>Change Password</h3>
-            <form onSubmit={handlePasswordChange} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div>
-                    <label style={{ display: "block", fontWeight: "bold" }}>Current Password:</label>
-                    <input
-                        type="password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        required
-                        style={{ width: "100%", padding: 8, marginTop: 4 }}
-                    />
+                {/* Centered Brand Title */}
+                <div className="brand" style={{ marginBottom: 0, textAlign: "center" }}>
+                    Profile <span>Settings</span>
                 </div>
 
-                <div>
-                    <label style={{ display: "block", fontWeight: "bold" }}>New Password:</label>
-                    <input
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        required
-                        style={{ width: "100%", padding: 8, marginTop: 4 }}
-                    />
-                </div>
+                {/* Empty Spacer to balance the grid */}
+                <div></div>
+            </div>
 
-                <button type="submit" disabled={loading} style={{ padding: "10px 15px", cursor: "pointer", backgroundColor: "#333", color: "#fff" }}>
-                    {loading ? "Updating..." : "Change Password"}
-                </button>
-            </form>
+            <div className="content">
+                <div style={{ background: "#f1e9d8", padding: 25, borderRadius: 8, color: "#1a3019" }}>
+                    {/* Centered Form Title */}
+                    <h2 style={{ marginTop: 0, marginBottom: 20, textAlign: "center" }}>Edit Profile</h2>
+
+                    {profileMsg && <div style={{ color: "green", marginBottom: 10, fontWeight: "bold", textAlign: "center" }}>{profileMsg}</div>}
+                    {profileError && <div style={{ color: "red", marginBottom: 10, fontWeight: "bold", textAlign: "center" }}>{profileError}</div>}
+
+                    <form onSubmit={handleProfileUpdate} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
+                        {/* Avatar Preview */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                            {photoURL ? (
+                                <img
+                                    src={photoURL}
+                                    alt="Profile"
+                                    style={{ width: 90, height: 90, borderRadius: "50%", objectFit: "cover", border: "2px solid #2b5329" }}
+                                />
+                            ) : (
+                                <div
+                                    style={{
+                                        width: 90,
+                                        height: 90,
+                                        borderRadius: "50%",
+                                        background: "#4a5568",
+                                        color: "#fff",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontSize: 32,
+                                        fontWeight: "bold",
+                                        border: "2px solid #2b5329",
+                                    }}
+                                >
+                                    {name ? name.charAt(0).toUpperCase() : "U"}
+                                </div>
+                            )}
+                            <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} style={{ fontSize: 13 }} />
+                        </div>
+
+                        <div>
+                            <label style={{ fontWeight: "bold", display: "block", marginBottom: 5 }}>Name</label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                required
+                                style={{ width: "100%", padding: 10, borderRadius: 4, border: "1px solid #ccc" }}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ fontWeight: "bold", display: "block", marginBottom: 5 }}>Phone Number</label>
+                            <input
+                                type="text"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                required
+                                style={{ width: "100%", padding: 10, borderRadius: 4, border: "1px solid #ccc" }}
+                            />
+                        </div>
+
+                        <hr style={{ border: "0.5px solid #d1c7b7", margin: "10px 0" }} />
+                        <h4 style={{ margin: 0 }}>Change Password (Optional)</h4>
+
+                        <div>
+                            <label style={{ fontSize: 13, display: "block", marginBottom: 5 }}>Current Password</label>
+                            <input
+                                type="password"
+                                value={currentPassword}
+                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                style={{ width: "100%", padding: 10, borderRadius: 4, border: "1px solid #ccc" }}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ fontSize: 13, display: "block", marginBottom: 5 }}>New Password</label>
+                            <input
+                                type="password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                style={{ width: "100%", padding: 10, borderRadius: 4, border: "1px solid #ccc" }}
+                            />
+                        </div>
+
+                        {/* Save Changes Button */}
+                        <button
+                            type="submit"
+                            disabled={updating}
+                            style={{
+                                padding: "12px",
+                                backgroundColor: "#2b5329",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                fontWeight: "bold",
+                                fontSize: 15,
+                                marginTop: 10,
+                            }}
+                        >
+                            {updating ? "Saving..." : "Save Changes"}
+                        </button>
+                    </form>
+
+                    <hr style={{ border: "0.5px solid #d1c7b7", margin: "25px 0 15px 0" }} />
+
+                    {/* Red Log Out Button */}
+                    <button
+                        onClick={() => logout()}
+                        style={{
+                            width: "100%",
+                            padding: "12px",
+                            backgroundColor: "#d9534f",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: 4,
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            fontSize: 15,
+                        }}
+                    >
+                        Log Out
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
