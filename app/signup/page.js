@@ -19,7 +19,7 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
     if (password.length < 6) {
-      setError("Password eke akuru 6 ho eyata wada thiyenna one.");
+      setError("Password must be at least 6 characters.");
       return;
     }
     setBusy(true);
@@ -27,8 +27,8 @@ export default function SignupPage() {
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await updateProfile(cred.user, { displayName: name });
 
-      // Signup form eken hadana account ekata role="customer" widiyata thamai
-      // auto set wenne - admin/super-admin account public signup eken hadanne nathi nisa
+      // Accounts created through this signup form always get role="customer" -
+      // admin/super-admin accounts are never created through public signup.
       await setDoc(doc(db, "users", cred.user.uid), {
         name,
         phone,
@@ -40,9 +40,9 @@ export default function SignupPage() {
       router.replace("/customer");
     } catch (err) {
       if (err.code === "auth/email-already-in-use") {
-        setError("Me email eka dan register wela thiyenawa. Login karanna try karanna.");
+        setError("This email is already registered. Try logging in instead.");
       } else {
-        setError("Account eka hadanna baruna. Ayeth try karanna.");
+        setError("Could not create the account. Please try again.");
       }
       setBusy(false);
     }
@@ -55,11 +55,11 @@ export default function SignupPage() {
       </div>
       <div className="card">
         <h1>Sign up</h1>
-        <p className="sub">Appointment book karanna account ekak hadaganna.</p>
+        <p className="sub">Create an account to book an appointment.</p>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="field">
-            <label>Nama</label>
+            <label>Name</label>
             <input required value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="field">
@@ -89,7 +89,7 @@ export default function SignupPage() {
           </button>
         </form>
         <div className="link-row">
-          Account eka dan thiyenawa nam <a href="/login">Login karanna</a>
+          Already have an account? <a href="/login">Log in</a>
         </div>
       </div>
     </div>

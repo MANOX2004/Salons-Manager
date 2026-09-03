@@ -51,9 +51,10 @@ export default function AdminPage() {
   async function handleSkip(token) {
     setBusyId(token.id);
     await setStatus(token.id, "skipped");
-    // ivara wenkota me token eka "waiting" list eken bahi yanawa - eyata passe
-    // ilanga kena serve karala ivara unaata passe, "Ayeth Queue Ekata Danna" button
-    // eken thamai ithuru wenne
+    // This moves them out of the waiting list for now. Once the next
+    // customer has been served (or at any point), the admin can use
+    // "Re-insert into queue" to bring them back right after whoever
+    // is next in line.
     setBusyId(null);
   }
 
@@ -83,17 +84,17 @@ export default function AdminPage() {
       <div className="content">
         {serving ? (
           <div className="ticket-hero">
-            <div className="label">Dan Serve Karanne</div>
+            <div className="label">Now Serving</div>
             <div className="num">#{serving.tokenNumber}</div>
             <div className="status">
               {serving.service} — {serving.customerName}
             </div>
             <div className="actions-row" style={{ marginTop: 18 }}>
               <button className="btn brass" onClick={() => handleDone(serving)} disabled={busyId === serving.id}>
-                Ivara Unaa (Done)
+                Mark Done
               </button>
               <button className="btn rust" onClick={() => handleSkip(serving)} disabled={busyId === serving.id}>
-                Skip Karanna
+                Skip
               </button>
             </div>
           </div>
@@ -102,15 +103,15 @@ export default function AdminPage() {
             <div style={{ flex: 1 }}>
               {waiting.length > 0 ? (
                 <>
-                  <strong>Ilanga token eka: #{waiting[0].tokenNumber}</strong> ({waiting[0].service})
+                  <strong>Next token: #{waiting[0].tokenNumber}</strong> ({waiting[0].service})
                 </>
               ) : (
-                <span className="empty-note" style={{ padding: 0 }}>Queue eke kisiveku naha.</span>
+                <span className="empty-note" style={{ padding: 0 }}>No one in the queue.</span>
               )}
             </div>
             {waiting.length > 0 && (
               <button className="btn brass" style={{ width: "auto", padding: "11px 22px" }} onClick={handleServeNext}>
-                Serve Karanna Patan Ganna
+                Start Serving
               </button>
             )}
           </div>
@@ -118,7 +119,7 @@ export default function AdminPage() {
 
         {skippedTokens.length > 0 && (
           <>
-            <div className="section-title">Skip Unu Kena</div>
+            <div className="section-title">Skipped</div>
             <div className="queue-list">
               {skippedTokens.map((t) => (
                 <div className="queue-row" key={t.id}>
@@ -128,7 +129,7 @@ export default function AdminPage() {
                     <div className="meta">{t.customerName}</div>
                   </div>
                   <button className="btn small ghost" onClick={() => handleReinsert(t)} disabled={busyId === t.id}>
-                    Ayeth Queue Ekata Danna
+                    Re-insert into Queue
                   </button>
                 </div>
               ))}
@@ -136,9 +137,9 @@ export default function AdminPage() {
           </>
         )}
 
-        <div className="section-title">Balaporottu Waguwa</div>
+        <div className="section-title">Waiting List</div>
         <div className="queue-list">
-          {waiting.length === 0 && <div className="empty-note">Balaporottu wena kisiveku naha.</div>}
+          {waiting.length === 0 && <div className="empty-note">No one waiting.</div>}
           {waiting.map((t, i) => (
             <div className="queue-row" key={t.id}>
               <div className="n">#{t.tokenNumber}</div>
@@ -146,7 +147,7 @@ export default function AdminPage() {
                 <div className="svc">{t.service}</div>
                 <div className="meta">{t.customerName}</div>
               </div>
-              <span className="tag waiting">{i === 0 ? "Ilanga" : `Tana ${i + 1}`}</span>
+              <span className="tag waiting">{i === 0 ? "Up Next" : `Position ${i + 1}`}</span>
             </div>
           ))}
         </div>

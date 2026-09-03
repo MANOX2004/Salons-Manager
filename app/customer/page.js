@@ -46,7 +46,7 @@ export default function CustomerPage() {
     e.preventDefault();
     setError("");
     if (myActiveToken) {
-      setError("Ohoma dan token ekak thiyenawa. Eka ivara wenakan ahuwak book karanna baha.");
+      setError("You already have an active token. Wait for it to finish before booking again.");
       return;
     }
     setBooking(true);
@@ -57,7 +57,7 @@ export default function CustomerPage() {
         service,
       });
     } catch (err) {
-      setError("Book karanna baruna. Ayeth try karanna.");
+      setError("Could not book the appointment. Please try again.");
     }
     setBooking(false);
   }
@@ -79,23 +79,23 @@ export default function CustomerPage() {
       <div className="content">
         {myActiveToken ? (
           <div className="ticket-hero">
-            <div className="label">Oyage Token Number</div>
+            <div className="label">Your Token Number</div>
             <div className="num">#{myActiveToken.tokenNumber}</div>
             <div className="status">
               {myActiveToken.status === "serving"
-                ? "Dan oyage pali - counter ekata yanna"
+                ? "It's your turn - please go to the counter"
                 : myActiveToken.status === "skipped"
-                ? "Skip unath, ilanga kenata passe ayeth queue ekata dala thiyenawa"
+                ? "You were skipped, but you've been placed back in the queue right after the next person"
                 : servingToken
-                ? `Dan serve karanne #${servingToken.tokenNumber}. Queue eke oyage tana: ${myPosition}`
-                : `Queue eke oyage tana: ${myPosition}`}
+                ? `Now serving #${servingToken.tokenNumber}. Your position in queue: ${myPosition}`
+                : `Your position in queue: ${myPosition}`}
             </div>
           </div>
         ) : (
           <div className="form-row" style={{ background: "#f1e9d8" }}>
             <form onSubmit={handleBook} style={{ display: "flex", gap: 12, flexWrap: "wrap", flex: 1 }}>
               <div className="field" style={{ flex: 1, minWidth: 180 }}>
-                <label>Service eka</label>
+                <label>Service</label>
                 <select value={service} onChange={(e) => setService(e.target.value)}>
                   {SERVICES.map((s) => (
                     <option key={s} value={s}>
@@ -105,16 +105,16 @@ export default function CustomerPage() {
                 </select>
               </div>
               <button className="btn brass" type="submit" disabled={booking} style={{ width: "auto", padding: "11px 22px" }}>
-                {booking ? "Booking..." : "Appointment ekak daanna"}
+                {booking ? "Booking..." : "Book Appointment"}
               </button>
             </form>
           </div>
         )}
         {error && <div className="error-msg" style={{ marginTop: 14 }}>{error}</div>}
 
-        <div className="section-title">Adha Queue Eka</div>
+        <div className="section-title">Today&apos;s Queue</div>
         <div className="queue-list">
-          {queue.length === 0 && <div className="empty-note">Dan queue eke kisiveku naha.</div>}
+          {queue.length === 0 && <div className="empty-note">No one in the queue yet.</div>}
           {queue.map((t) => (
             <div className={`queue-row ${t.customerUid === user.uid ? "me" : ""}`} key={t.id}>
               <div className="n">#{t.tokenNumber}</div>
@@ -123,9 +123,9 @@ export default function CustomerPage() {
                 <div className="meta">{t.customerName}</div>
               </div>
               <span className={`tag ${t.status}`}>
-                {t.status === "waiting" && "Balaporottu"}
-                {t.status === "serving" && "Dan Serve"}
-                {t.status === "skipped" && "Skip"}
+                {t.status === "waiting" && "Waiting"}
+                {t.status === "serving" && "Now Serving"}
+                {t.status === "skipped" && "Skipped"}
               </span>
             </div>
           ))}

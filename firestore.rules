@@ -23,11 +23,10 @@ service cloud.firestore {
       return isAdmin() || isSuperAdmin();
     }
 
-    // users/{uid} - kenekuta puluwan tamange document eka witharai kiyawanna.
-    // Signup ekedi tama document eka "customer" role ekenma hadaganna puluwan -
-    // e wenna vena role ekak dala tamange account eka create karanna baha.
-    // Admin/super-admin document generate wenne app code eken witharai (client
-    // eke role check ekakin nemei), staff kenekuta okkoma users balanna puluwan.
+    // users/{uid} - a user can only read their own document.
+    // Anyone can create their own document during signup, but only with
+    // role="customer" - so nobody can self-assign admin/super-admin.
+    // Staff (admin/super-admin) can read every user document.
     match /users/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isStaff());
       allow create: if isSignedIn()
@@ -38,9 +37,9 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // tokens - customer kenekuta puluwan tamange token eka witharai hadanna,
-    // okkoma signed-in una kenekuta queue eka balanna puluwan (live view ekata),
-    // status/order wenas karanna puluwan staff ta witharai.
+    // tokens - a customer can only create their own token (status must
+    // start as "waiting"). Any signed-in user can read the queue (needed
+    // for the live queue view). Only staff can change status/order.
     match /tokens/{tokenId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn()
@@ -50,8 +49,7 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // counters - token number generate karanna witharai, transaction eken
-    // signed-in kenekuta write karanna puluwan (booking flow eke kොටසක්)
+    // counters - used only to generate sequential token numbers per day.
     match /counters/{dateKey} {
       allow read: if isSignedIn();
       allow write: if isSignedIn();
