@@ -1,0 +1,370 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  --pine: #1f3a2e;
+  --pine-dark: #142720;
+  --ticket: #f1e9d8;
+  --ticket-edge: #dfd2b4;
+  --brass: #b8863b;
+  --brass-dark: #96692a;
+  --rust: #9c4a3b;
+  --ink: #211d16;
+  --muted: #6c6459;
+  --font-display: "Fraunces", serif;
+  --font-body: "Inter", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--pine-dark);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 20px;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 22px;
+  color: var(--ticket);
+  letter-spacing: 0.2px;
+  margin-bottom: 36px;
+}
+
+.brand span {
+  color: var(--brass);
+}
+
+.card {
+  background: var(--ticket);
+  border: 1px solid var(--ticket-edge);
+  border-radius: 6px;
+  padding: 36px 32px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.card h1 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+
+.card p.sub {
+  margin: 0 0 26px;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1.5px solid var(--ticket-edge);
+  border-radius: 4px;
+  font-size: 15px;
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 2px solid var(--brass);
+  outline-offset: 1px;
+  border-color: var(--brass);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--pine);
+  color: var(--ticket);
+  transition: background 0.15s ease;
+}
+
+.btn:hover {
+  background: var(--pine-dark);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn.brass {
+  background: var(--brass);
+  color: #241a09;
+}
+
+.btn.brass:hover {
+  background: var(--brass-dark);
+}
+
+.btn.rust {
+  background: var(--rust);
+  color: #fff2ee;
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid var(--ticket-edge);
+}
+
+.btn.small {
+  width: auto;
+  padding: 8px 14px;
+  font-size: 13.5px;
+}
+
+.error-msg {
+  background: #fbe3de;
+  color: #7a2b1e;
+  border: 1px solid #ecb7a8;
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 13.5px;
+  margin-bottom: 16px;
+}
+
+.link-row {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.link-row a {
+  color: var(--brass-dark);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-row a:hover {
+  text-decoration: underline;
+}
+
+/* --- Dashboard shell --- */
+
+.shell {
+  min-height: 100vh;
+  background: #eee7d8;
+}
+
+.topbar {
+  background: var(--pine);
+  color: var(--ticket);
+  padding: 18px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.topbar .who {
+  font-size: 13px;
+  color: #cdd8cf;
+}
+
+.topbar .who strong {
+  color: var(--ticket);
+}
+
+.content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--pine-dark);
+  margin: 34px 0 14px;
+}
+
+.section-title:first-child {
+  margin-top: 0;
+}
+
+/* --- Ticket / token --- */
+
+.ticket-hero {
+  background: var(--pine);
+  border-radius: 10px;
+  padding: 30px 26px;
+  color: var(--ticket);
+  position: relative;
+  overflow: hidden;
+}
+
+.ticket-hero .label {
+  font-size: 13px;
+  color: #b9c9bd;
+  margin-bottom: 6px;
+}
+
+.ticket-hero .num {
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--brass);
+}
+
+.ticket-hero .status {
+  margin-top: 10px;
+  font-size: 14.5px;
+  color: #e4ddc7;
+}
+
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--ticket);
+  border: 1px solid var(--ticket-edge);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+.queue-row.me {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 2px rgba(184, 134, 59, 0.25) inset;
+}
+
+.queue-row .n {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--pine);
+  width: 34px;
+}
+
+.queue-row .info {
+  flex: 1;
+}
+
+.queue-row .info .svc {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.queue-row .info .meta {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.tag.waiting {
+  background: #e4dcc4;
+  color: #5c5138;
+}
+
+.tag.serving {
+  background: #c8e0cd;
+  color: #1f3a2e;
+}
+
+.tag.skipped {
+  background: #f2d3c8;
+  color: #7a2e2e;
+}
+
+.tag.done {
+  background: #d8d4c9;
+  color: #6c6459;
+}
+
+.actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.empty-note {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 18px 0;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  background: var(--ticket);
+  border: 1px solid var(--ticket-edge);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.form-row .field {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 180px;
+}

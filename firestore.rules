@@ -1,0 +1,60 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && myRole() == "super-admin";
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myRole() == "admin";
+    }
+
+    function isStaff() {
+      return isAdmin() || isSuperAdmin();
+    }
+
+    // users/{uid} - kenekuta puluwan tamange document eka witharai kiyawanna.
+    // Signup ekedi tama document eka "customer" role ekenma hadaganna puluwan -
+    // e wenna vena role ekak dala tamange account eka create karanna baha.
+    // Admin/super-admin document generate wenne app code eken witharai (client
+    // eke role check ekakin nemei), staff kenekuta okkoma users balanna puluwan.
+    match /users/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isStaff());
+      allow create: if isSignedIn()
+                    && request.auth.uid == uid
+                    && request.resource.data.role == "customer";
+      allow update: if isSignedIn() && request.auth.uid == uid
+                    && request.resource.data.role == resource.data.role;
+      allow delete: if false;
+    }
+
+    // tokens - customer kenekuta puluwan tamange token eka witharai hadanna,
+    // okkoma signed-in una kenekuta queue eka balanna puluwan (live view ekata),
+    // status/order wenas karanna puluwan staff ta witharai.
+    match /tokens/{tokenId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.customerUid == request.auth.uid
+                    && request.resource.data.status == "waiting";
+      allow update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    // counters - token number generate karanna witharai, transaction eken
+    // signed-in kenekuta write karanna puluwan (booking flow eke kොටසක්)
+    match /counters/{dateKey} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+  }
+}
