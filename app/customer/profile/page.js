@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
 import { db, auth } from "../../../lib/firebase";
-import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { todayKey } from "../../../lib/queue";
 
 export default function ProfilePage() {
     const { user, role, loading, logout } = useAuth();
@@ -79,13 +80,34 @@ export default function ProfilePage() {
             const userRef = doc(db, "users", user.uid);
             await updateDoc(userRef, {
                 displayName: name,
+                name: name,
                 phone: phone,
                 photoURL: updatedPhotoURL,
             });
 
+            // Update any active tokens for today with new customerName and customerPhotoURL
+            const dateKey = todayKey();
+            const q = query(
+                collection(db, "tokens"),
+                where("queueDate", "==", dateKey),
+                where("customerUid", "==", user.uid)
+            );
+            const tokenSnap = await getDocs(q);
+            if (!tokenSnap.empty) {
+                const batch = writeBatch(db);
+                tokenSnap.docs.forEach((tDoc) => {
+                    batch.update(tDoc.ref, {
+                        customerName: name,
+                        customerPhotoURL: updatedPhotoURL || "",
+                    });
+                });
+                await batch.commit();
+            }
+
             if (auth.currentUser) {
                 await updateProfile(auth.currentUser, {
                     displayName: name,
+                    photoURL: updatedPhotoURL || auth.currentUser.photoURL,
                 });
             }
 

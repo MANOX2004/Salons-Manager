@@ -32,6 +32,7 @@ export default function SignupPage() {
       // admin/super-admin accounts are never created through public signup.
       await setDoc(doc(db, "users", cred.user.uid), {
         name,
+        displayName: name,
         phone,
         email: email.trim(),
         role: "customer",

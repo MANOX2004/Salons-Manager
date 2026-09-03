@@ -79,6 +79,7 @@ export default function AdminProfilePage() {
             const userRef = doc(db, "users", user.uid);
             await updateDoc(userRef, {
                 displayName: name,
+                name: name,
                 phone: phone,
                 photoURL: updatedPhotoURL,
             });
