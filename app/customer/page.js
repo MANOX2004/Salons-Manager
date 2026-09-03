@@ -319,12 +319,24 @@ export default function CustomerPage() {
                 >
                   Cancelled
                 </span>
+              ) : t.status === "done" ? (
+                <span
+                  style={{
+                    backgroundColor: "#28a745",
+                    color: "#ffffff",
+                    padding: "4px 10px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Completed
+                </span>
               ) : (
                 <span className={`tag ${t.status}`}>
                   {t.status === "waiting" && "Waiting"}
                   {t.status === "serving" && "Now Serving"}
                   {t.status === "skipped" && "Skipped"}
-                  {t.status === "done" && "Done"}
                 </span>
               )}
             </div>

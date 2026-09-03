@@ -85,7 +85,7 @@ export default function AdminPage() {
       t.customerName,
       t.phone || "N/A",
       t.service,
-      t.status.toUpperCase(),
+      t.status === "done" ? "COMPLETED" : t.status.toUpperCase(),
     ]);
 
     autoTable(doc, {

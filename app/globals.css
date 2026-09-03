@@ -336,8 +336,12 @@ button {
 }
 
 .tag.done {
-  background: #d8d4c9;
-  color: #6c6459;
+  background: #28a745;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
 }
 
 .actions-row {
