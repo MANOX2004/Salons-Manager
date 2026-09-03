@@ -37,7 +37,7 @@ export default function LoginPage() {
   return (
     <div className="page">
       <div className="brand">
-        salon<span>queue</span>
+        Salon<span>Yasi</span>
       </div>
       <div className="card">
         <h1>Log in</h1>
