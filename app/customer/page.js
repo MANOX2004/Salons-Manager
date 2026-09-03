@@ -25,19 +25,17 @@ export default function CustomerPage() {
     }
   }, [user, role, loading, router]);
 
-  // Firestore එකෙන් services සහ prices ලබා ගැනීම
   useEffect(() => {
     const unsubServices = onSnapshot(doc(db, "settings", "services"), (docSnap) => {
       if (docSnap.exists() && docSnap.data().items) {
         setServicesList(docSnap.data().items);
       } else {
-        // Default backup list
         setServicesList([
           { name: "Hair Cut", price: 1000 },
           { name: "Shave", price: 500 },
           { name: "Hair Colour", price: 2500 },
           { name: "Facial", price: 3000 },
-          { name: "Hair Wash", price: 800 }
+          { name: "Hair Wash", price: 800 },
         ]);
       }
     });
@@ -45,7 +43,6 @@ export default function CustomerPage() {
     return () => unsubServices();
   }, []);
 
-  // Queue එක සෙනසුරාදා පරිදි update කිරීම
   useEffect(() => {
     const unsub = listenQueueToday(setQueue);
     return () => unsub();
@@ -59,14 +56,20 @@ export default function CustomerPage() {
     );
   }
 
-  const myTokens = queue.filter((t) => t.customerUid === user.uid);
-  const myActiveToken = myTokens.find((t) => t.status !== "done" && t.status !== "cancelled") || null;
-  const myPosition = myActiveToken
-    ? queue.findIndex((t) => t.id === myActiveToken.id) + 1
-    : null;
-  const servingToken = queue.find((t) => t.status === "serving");
+  const waitingOrServingQueue = queue.filter(
+    (t) => t.status === "waiting" || t.status === "serving" || t.status === "skipped"
+  );
 
-  // Multi-select Checkbox click handling
+  const myTokensToday = queue.filter((t) => t.customerUid === user.uid);
+  const myActiveToken = myTokensToday.find(
+    (t) => t.status !== "done" && t.status !== "cancelled"
+  ) || null;
+
+  const myPosition = myActiveToken
+    ? waitingOrServingQueue.findIndex((t) => t.id === myActiveToken.id) + 1
+    : null;
+  const servingToken = waitingOrServingQueue.find((t) => t.status === "serving");
+
   const handleServiceChange = (serviceName) => {
     if (selectedServices.includes(serviceName)) {
       setSelectedServices(selectedServices.filter((item) => item !== serviceName));
@@ -75,24 +78,23 @@ export default function CustomerPage() {
     }
   };
 
-  // Total Price calculate කිරීම
   const totalPrice = selectedServices.reduce((total, serviceName) => {
     const item = servicesList.find((s) => s.name === serviceName);
     return total + (item ? item.price : 0);
   }, 0);
 
-  // Booking process
   async function handleBook(e) {
     e.preventDefault();
     setError("");
 
-    if (selectedServices.length === 0) {
-      setError("Please select at least one service.");
+    const existingValidToken = myTokensToday.find((t) => t.status !== "cancelled");
+    if (existingValidToken) {
+      setError("You have already booked an appointment for today. Only 1 appointment per day is allowed.");
       return;
     }
 
-    if (myActiveToken) {
-      setError("You already have an active token. Wait for it to finish before booking again.");
+    if (selectedServices.length === 0) {
+      setError("Please select at least one service.");
       return;
     }
 
@@ -111,7 +113,6 @@ export default function CustomerPage() {
     setBooking(false);
   }
 
-  // Cancel Appointment with Confirmation Dialog
   async function handleCancel() {
     if (!myActiveToken) return;
 
@@ -121,12 +122,7 @@ export default function CustomerPage() {
     setCanceling(true);
     setError("");
     try {
-      if (typeof cancelToken === "function") {
-        await cancelToken(myActiveToken.id);
-      } else {
-        // Fallback or handle cancel status update directly
-        console.log("Token cancelled:", myActiveToken.id);
-      }
+      await cancelToken(myActiveToken.id);
     } catch (err) {
       setError("Could not cancel appointment. Please try again.");
     }
@@ -152,10 +148,12 @@ export default function CustomerPage() {
           <div className="ticket-hero">
             <div className="label">Your Token Number</div>
             <div className="num">#{myActiveToken.tokenNumber}</div>
+
             <div className="status" style={{ marginBottom: 10 }}>
               <strong>Services:</strong> {myActiveToken.service} <br />
               <strong>Total Cost:</strong> Rs. {myActiveToken.totalPrice || 0}
             </div>
+
             <div className="status">
               {myActiveToken.status === "serving"
                 ? "It's your turn - please go to the counter"
@@ -201,7 +199,7 @@ export default function CustomerPage() {
                 ))}
               </div>
 
-              <div style={{ marginTop: 10, fontSize: "1.1em", fontWeight: "bold" }}>
+              <div style={{ marginTop: 5, fontSize: "1.1em", fontWeight: "bold" }}>
                 Total Price: <span style={{ color: "#2b5329" }}>Rs. {totalPrice}</span>
               </div>
 
@@ -218,17 +216,43 @@ export default function CustomerPage() {
         <div className="queue-list">
           {queue.length === 0 && <div className="empty-note">No one in the queue yet.</div>}
           {queue.map((t) => (
-            <div className={`queue-row ${t.customerUid === user.uid ? "me" : ""}`} key={t.id}>
+            <div
+              className={`queue-row ${t.customerUid === user.uid ? "me" : ""}`}
+              key={t.id}
+              style={t.status === "cancelled" ? { opacity: 0.85 } : {}}
+            >
               <div className="n">#{t.tokenNumber}</div>
               <div className="info">
-                <div className="svc">{t.service}</div>
-                <div className="meta">{t.customerName} {t.totalPrice ? `(Rs. ${t.totalPrice})` : ""}</div>
+                <div className="svc" style={t.status === "cancelled" ? { textDecoration: "line-through", color: "#888" } : {}}>
+                  {t.service}
+                </div>
+                <div className="meta">
+                  {t.customerName} {t.totalPrice ? `(Rs. ${t.totalPrice})` : ""}
+                </div>
               </div>
-              <span className={`tag ${t.status}`}>
-                {t.status === "waiting" && "Waiting"}
-                {t.status === "serving" && "Now Serving"}
-                {t.status === "skipped" && "Skipped"}
-              </span>
+
+              {/* Status Tag Handling */}
+              {t.status === "cancelled" ? (
+                <span
+                  style={{
+                    backgroundColor: "#d9534f",
+                    color: "#ffffff",
+                    padding: "4px 10px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Cancelled
+                </span>
+              ) : (
+                <span className={`tag ${t.status}`}>
+                  {t.status === "waiting" && "Waiting"}
+                  {t.status === "serving" && "Now Serving"}
+                  {t.status === "skipped" && "Skipped"}
+                  {t.status === "done" && "Done"}
+                </span>
+              )}
             </div>
           ))}
         </div>
