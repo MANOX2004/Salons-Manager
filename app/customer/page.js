@@ -311,7 +311,10 @@ export default function CustomerPage() {
                   style={{
                     backgroundColor: "#d9534f",
                     color: "#ffffff",
-                    padding: "4px 10px",
+                    padding: "4px 0",
+                    minWidth: "90px",
+                    textAlign: "center",
+                    display: "inline-block",
                     borderRadius: "4px",
                     fontSize: "12px",
                     fontWeight: "bold",
@@ -324,7 +327,10 @@ export default function CustomerPage() {
                   style={{
                     backgroundColor: "#28a745",
                     color: "#ffffff",
-                    padding: "4px 10px",
+                    padding: "4px 0",
+                    minWidth: "90px",
+                    textAlign: "center",
+                    display: "inline-block",
                     borderRadius: "4px",
                     fontSize: "12px",
                     fontWeight: "bold",
@@ -333,7 +339,16 @@ export default function CustomerPage() {
                   Completed
                 </span>
               ) : (
-                <span className={`tag ${t.status}`}>
+                <span
+                  className={`tag ${t.status}`}
+                  style={{
+                    minWidth: "90px",
+                    textAlign: "center",
+                    display: "inline-block",
+                    padding: "4px 0",
+                    borderRadius: "4px",
+                  }}
+                >
                   {t.status === "waiting" && "Waiting"}
                   {t.status === "serving" && "Now Serving"}
                   {t.status === "skipped" && "Skipped"}
