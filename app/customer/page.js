@@ -150,6 +150,7 @@ export default function CustomerPage() {
       await bookToken({
         uid: user.uid,
         customerName: name || user.displayName || user.email,
+        customerPhotoURL: photoURL || "", // Booking එක කරන අවස්ථාවේ Profile Pic එක යවයි
         service: selectedServices.join(", "),
         totalPrice: totalPrice,
       });
@@ -194,7 +195,7 @@ export default function CustomerPage() {
         setPhotoURL(updatedPhotoURL);
       }
 
-      // 1. Firestore update (Base64 string එක මෙහි පමණක් සුරැකේ)
+      // 1. Firestore update
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {
         displayName: name,
@@ -202,7 +203,7 @@ export default function CustomerPage() {
         photoURL: updatedPhotoURL,
       });
 
-      // 2. Firebase Auth update (photoURL නැතුව displayName පමණක් update වේ)
+      // 2. Firebase Auth update
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
           displayName: name,
@@ -332,10 +333,39 @@ export default function CustomerPage() {
             <div
               className={`queue-row ${t.customerUid === user.uid ? "me" : ""}`}
               key={t.id}
-              style={t.status === "cancelled" ? { opacity: 0.85 } : {}}
+              style={{ display: "flex", alignItems: "center", gap: 12, opacity: t.status === "cancelled" ? 0.85 : 1 }}
             >
+              {/* Profile Picture (First Position) */}
+              {t.customerPhotoURL ? (
+                <img
+                  src={t.customerPhotoURL}
+                  alt={t.customerName}
+                  style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: "#cbd5e1",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 16,
+                    fontWeight: "bold",
+                    color: "#475569",
+                  }}
+                >
+                  {t.customerName ? t.customerName.charAt(0).toUpperCase() : "U"}
+                </div>
+              )}
+
+              {/* Token Number (Second Position) */}
               <div className="n">#{t.tokenNumber}</div>
-              <div className="info">
+
+              {/* Info Section */}
+              <div className="info" style={{ flex: 1 }}>
                 <div className="svc" style={t.status === "cancelled" ? { textDecoration: "line-through", color: "#888" } : {}}>
                   {t.service}
                 </div>
@@ -344,6 +374,7 @@ export default function CustomerPage() {
                 </div>
               </div>
 
+              {/* Status Tag */}
               {t.status === "cancelled" ? (
                 <span
                   style={{
