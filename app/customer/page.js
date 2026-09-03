@@ -149,7 +149,7 @@ export default function CustomerPage() {
       {/* Topbar with Avatar Linking to Profile Page */}
       <div className="topbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div className="brand" style={{ marginBottom: 0 }}>
-          salon<span>queue</span>
+          Salon<span>Yasi</span>
         </div>
 
         {/* Profile Avatar Button */}
