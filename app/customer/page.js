@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
 import { bookToken, listenQueueToday, cancelToken } from "../../lib/queue";
-import { db } from "../../lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../../lib/firebase";
+import { doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
+import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 
 export default function CustomerPage() {
   const { user, role, loading, logout } = useAuth();
@@ -18,6 +19,18 @@ export default function CustomerPage() {
   const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState("");
 
+  // Profile Edit Modal States
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [photoURL, setPhotoURL] = useState("");
+  const [imageFile, setImageFile] = useState(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [profileMsg, setProfileMsg] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+
   useEffect(() => {
     if (loading) return;
     if (!user || role !== "customer") {
@@ -25,6 +38,29 @@ export default function CustomerPage() {
     }
   }, [user, role, loading, router]);
 
+  // Firestore වෙතින් Customer Details Load කිරීම
+  useEffect(() => {
+    async function loadUserData() {
+      if (!user) return;
+      setName(user.displayName || "");
+
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setPhone(data.phone || "");
+          if (data.photoURL) {
+            setPhotoURL(data.photoURL);
+          }
+        }
+      } catch (e) {
+        console.error("Error loading user data:", e);
+      }
+    }
+    loadUserData();
+  }, [user]);
+
+  // Services Listeners
   useEffect(() => {
     const unsubServices = onSnapshot(doc(db, "settings", "services"), (docSnap) => {
       if (docSnap.exists() && docSnap.data().items) {
@@ -43,10 +79,21 @@ export default function CustomerPage() {
     return () => unsubServices();
   }, []);
 
+  // Queue Listeners
   useEffect(() => {
     const unsub = listenQueueToday(setQueue);
     return () => unsub();
   }, []);
+
+  // File එක Base64 Text එකක් බවට හරවන Function එක
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
 
   if (loading || !user) {
     return (
@@ -102,7 +149,7 @@ export default function CustomerPage() {
     try {
       await bookToken({
         uid: user.uid,
-        customerName: user.displayName || user.email,
+        customerName: name || user.displayName || user.email,
         service: selectedServices.join(", "),
         totalPrice: totalPrice,
       });
@@ -129,14 +176,80 @@ export default function CustomerPage() {
     setCanceling(false);
   }
 
+  // Base64 හරහා Profile Update කිරීම
+  async function handleProfileUpdate(e) {
+    e.preventDefault();
+    setUpdatingProfile(true);
+    setProfileMsg("");
+    setProfileError("");
+
+    try {
+      let updatedPhotoURL = photoURL;
+
+      if (imageFile) {
+        if (imageFile.size > 800 * 1024) {
+          throw new Error("Image size is too large. Please select an image under 800KB.");
+        }
+        updatedPhotoURL = await convertToBase64(imageFile);
+        setPhotoURL(updatedPhotoURL);
+      }
+
+      // 1. Firestore update (Base64 string එක මෙහි පමණක් සුරැකේ)
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        displayName: name,
+        phone: phone,
+        photoURL: updatedPhotoURL,
+      });
+
+      // 2. Firebase Auth update (photoURL නැතුව displayName පමණක් update වේ)
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: name,
+        });
+      }
+
+      // 3. Password Update (Optional)
+      if (currentPassword && newPassword) {
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(auth.currentUser, credential);
+        await updatePassword(auth.currentUser, newPassword);
+        setCurrentPassword("");
+        setNewPassword("");
+      }
+
+      setProfileMsg("Profile updated successfully!");
+    } catch (err) {
+      setProfileError("Update failed: " + err.message);
+    }
+    setUpdatingProfile(false);
+  }
+
   return (
     <div className="shell">
+      {/* Topbar */}
       <div className="topbar">
         <div className="brand" style={{ marginBottom: 0 }}>
           salon<span>queue</span>
         </div>
-        <div className="who">
-          <strong>{user.displayName || user.email}</strong> ·{" "}
+        <div className="who" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {photoURL ? (
+            <img
+              src={photoURL}
+              alt="Profile"
+              style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
+            />
+          ) : (
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#ccc" }} />
+          )}
+          <strong>{name || user.displayName || user.email}</strong>
+          <button
+            onClick={() => setShowProfileModal(true)}
+            style={{ background: "#4a5568", color: "#fff", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}
+          >
+            Edit Profile
+          </button>
+          ·{" "}
           <a href="#" onClick={logout} style={{ color: "#e4ddc7" }}>
             Log out
           </a>
@@ -231,7 +344,6 @@ export default function CustomerPage() {
                 </div>
               </div>
 
-              {/* Status Tag Handling */}
               {t.status === "cancelled" ? (
                 <span
                   style={{
@@ -257,6 +369,59 @@ export default function CustomerPage() {
           ))}
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      {showProfileModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
+          <div style={{ background: "#fff", padding: 25, borderRadius: 8, maxWidth: 450, width: "90%", maxHeight: "90vh", overflowY: "auto", color: "#333" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+              <h3 style={{ margin: 0 }}>Edit Profile</h3>
+              <button onClick={() => setShowProfileModal(false)} style={{ border: "none", background: "none", fontSize: 18, cursor: "pointer" }}>✕</button>
+            </div>
+
+            {profileMsg && <p style={{ color: "green", fontSize: 14 }}>{profileMsg}</p>}
+            {profileError && <p style={{ color: "red", fontSize: 14 }}>{profileError}</p>}
+
+            <form onSubmit={handleProfileUpdate} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ textAlign: "center" }}>
+                {photoURL ? (
+                  <img src={photoURL} alt="Profile" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", margin: "0 auto" }} />
+                ) : (
+                  <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#ccc", margin: "0 auto" }} />
+                )}
+                <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} style={{ marginTop: 8, fontSize: 12 }} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: "bold" }}>Name</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required style={{ width: "100%", padding: 8, marginTop: 2 }} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: "bold" }}>Phone Number</label>
+                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} required style={{ width: "100%", padding: 8, marginTop: 2 }} />
+              </div>
+
+              <hr style={{ margin: "10px 0" }} />
+              <p style={{ margin: 0, fontSize: 12, fontWeight: "bold" }}>Change Password (Optional)</p>
+
+              <div>
+                <label style={{ fontSize: 12 }}>Current Password</label>
+                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 2 }} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12 }}>New Password</label>
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 2 }} />
+              </div>
+
+              <button type="submit" disabled={updatingProfile} style={{ padding: 10, backgroundColor: "#2b5329", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", marginTop: 10 }}>
+                {updatingProfile ? "Updating..." : "Save Changes"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
