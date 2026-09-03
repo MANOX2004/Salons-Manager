@@ -87,9 +87,9 @@ export default function SuperAdminPage() {
         </div>
         <div className="who">
           Super-admin · <strong>{user.displayName || user.email}</strong> ·{" "}
-          <a href="#" onClick={logout} style={{ color: "#e4ddc7" }}>
+          <button onClick={logout} style={{ background: "none", border: "none", color: "#e4ddc7", textDecoration: "underline", cursor: "pointer", fontSize: "13px", padding: 0 }}>
             Log out
-          </a>
+          </button>
         </div>
       </div>
 

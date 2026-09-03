@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
@@ -69,7 +70,7 @@ export default function LoginPage() {
           </button>
         </form>
         <div className="link-row">
-          Don&apos;t have an account? <a href="/signup">Sign up</a>
+          Don&apos;t have an account? <Link href="/signup">Sign up</Link>
         </div>
       </div>
     </div>

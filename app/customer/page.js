@@ -213,6 +213,27 @@ export default function CustomerPage() {
                     : `Your position in queue: ${myPosition}`}
             </div>
 
+            {/* Current Cutting Display */}
+            <div
+              style={{
+                marginTop: 15,
+                padding: "10px 14px",
+                backgroundColor: "rgba(40, 167, 69, 0.2)",
+                border: "1.5px solid #28a745",
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <span style={{ fontSize: "14px", fontWeight: "600", color: "#e4ddc7", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                <span className="pulse-green-dot"></span> Current Cutting:
+              </span>
+              <span style={{ fontSize: "18px", fontWeight: "800", color: "#28a745" }}>
+                {servingToken ? `#${servingToken.tokenNumber}` : "None"}
+              </span>
+            </div>
+
             <button
               onClick={handleCancel}
               disabled={canceling}
@@ -231,6 +252,28 @@ export default function CustomerPage() {
             </button>
           </div>
         ) : (
+          <div>
+            {/* Current Cutting Display for non-booked users */}
+            <div
+              style={{
+                marginBottom: 16,
+                padding: "12px 16px",
+                backgroundColor: "#1f3a2e",
+                border: "1.5px solid #28a745",
+                borderRadius: 8,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                color: "#e4ddc7",
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: "600", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <span className="pulse-green-dot"></span> Current Cutting:
+              </span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: "#28a745" }}>
+                {servingToken ? `#${servingToken.tokenNumber}` : "None"}
+              </span>
+            </div>
           <div className="form-row" style={{ background: "#f1e9d8", padding: 20, borderRadius: 8 }}>
             <form onSubmit={handleBook} style={{ display: "flex", flexDirection: "column", gap: 15, width: "100%" }}>
               <label style={{ fontWeight: "bold" }}>Select Services:</label>
@@ -256,6 +299,7 @@ export default function CustomerPage() {
                 {booking ? "Booking..." : "Book Appointment"}
               </button>
             </form>
+          </div>
           </div>
         )}
 
