@@ -46,14 +46,13 @@ export default function SuperAdminPage() {
     setError("");
     setOkMsg("");
     if (password.length < 6) {
-      setError("Password eke akuru 6ka wenath thiyanna one.");
+      setError("Password must be at least 6 characters.");
       return;
     }
     setBusy(true);
     try {
-      // Secondary Firebase app instance ekak use karala thamai aluth
-      // admin account eka hadanne - meken oyage (super-admin) login session eka
-      // logout wenne naha
+      // Uses a secondary Firebase app instance to create the new admin
+      // account, so your own (super-admin) login session isn't replaced.
       const secondaryAuth = getSecondaryAuth();
       const cred = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password);
 
@@ -66,15 +65,15 @@ export default function SuperAdminPage() {
 
       await signOut(secondaryAuth);
 
-      setOkMsg(`Admin account eka hadala ivara. (${email}) - login details salon owner ta denna.`);
+      setOkMsg(`Admin account created (${email}). Share the login details with the salon owner.`);
       setName("");
       setEmail("");
       setPassword("");
     } catch (err) {
       if (err.code === "auth/email-already-in-use") {
-        setError("Me email eka dan use wela thiyenawa.");
+        setError("This email is already in use.");
       } else {
-        setError("Admin account eka hadanna baruna.");
+        setError("Could not create the admin account.");
       }
     }
     setBusy(false);
@@ -95,7 +94,7 @@ export default function SuperAdminPage() {
       </div>
 
       <div className="content">
-        <div className="section-title">Aluth Admin (Salon Owner) Ekak Hadanna</div>
+        <div className="section-title">Create a New Admin (Salon Owner)</div>
         {error && <div className="error-msg">{error}</div>}
         {okMsg && (
           <div className="error-msg" style={{ background: "#dcecdf", color: "#1f3a2e", borderColor: "#b6d6bc" }}>
@@ -104,7 +103,7 @@ export default function SuperAdminPage() {
         )}
         <form onSubmit={handleCreateAdmin} className="form-row" style={{ flexWrap: "wrap" }}>
           <div className="field">
-            <label>Nama</label>
+            <label>Name</label>
             <input required value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="field">
@@ -116,13 +115,13 @@ export default function SuperAdminPage() {
             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <button className="btn brass" type="submit" disabled={busy} style={{ width: "auto", padding: "11px 22px" }}>
-            {busy ? "Creating..." : "Admin Ekak Hadanna"}
+            {busy ? "Creating..." : "Create Admin"}
           </button>
         </form>
 
-        <div className="section-title">Dan Thiyena Admin Lo</div>
+        <div className="section-title">Current Admins</div>
         <div className="queue-list">
-          {admins.length === 0 && <div className="empty-note">Admin kenek nathi.</div>}
+          {admins.length === 0 && <div className="empty-note">No admins yet.</div>}
           {admins.map((a) => (
             <div className="queue-row" key={a.id}>
               <div className="info">

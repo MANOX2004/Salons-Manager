@@ -3,16 +3,19 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
-import { bookToken, listenQueueToday } from "../../lib/queue";
-
-const SERVICES = ["Hair Cut", "Shave", "Hair Colour", "Facial", "Hair Wash"];
+import { bookToken, listenQueueToday, cancelToken } from "../../lib/queue";
+import { db } from "../../lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
 
 export default function CustomerPage() {
   const { user, role, loading, logout } = useAuth();
   const router = useRouter();
+
   const [queue, setQueue] = useState([]);
-  const [service, setService] = useState(SERVICES[0]);
+  const [servicesList, setServicesList] = useState([]);
+  const [selectedServices, setSelectedServices] = useState([]);
   const [booking, setBooking] = useState(false);
+  const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -21,6 +24,24 @@ export default function CustomerPage() {
       router.replace("/login");
     }
   }, [user, role, loading, router]);
+
+  useEffect(() => {
+    const unsubServices = onSnapshot(doc(db, "settings", "services"), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().items) {
+        setServicesList(docSnap.data().items);
+      } else {
+        setServicesList([
+          { name: "Hair Cut", price: 1000 },
+          { name: "Shave", price: 500 },
+          { name: "Hair Colour", price: 2500 },
+          { name: "Facial", price: 3000 },
+          { name: "Hair Wash", price: 800 },
+        ]);
+      }
+    });
+
+    return () => unsubServices();
+  }, []);
 
   useEffect(() => {
     const unsub = listenQueueToday(setQueue);
@@ -35,31 +56,77 @@ export default function CustomerPage() {
     );
   }
 
-  const myTokens = queue.filter((t) => t.customerUid === user.uid);
-  const myActiveToken = myTokens.find((t) => t.status !== "done") || null;
+  const waitingOrServingQueue = queue.filter(
+    (t) => t.status === "waiting" || t.status === "serving" || t.status === "skipped"
+  );
+
+  const myTokensToday = queue.filter((t) => t.customerUid === user.uid);
+  const myActiveToken = myTokensToday.find(
+    (t) => t.status !== "done" && t.status !== "cancelled"
+  ) || null;
+
   const myPosition = myActiveToken
-    ? queue.findIndex((t) => t.id === myActiveToken.id) + 1
+    ? waitingOrServingQueue.findIndex((t) => t.id === myActiveToken.id) + 1
     : null;
-  const servingToken = queue.find((t) => t.status === "serving");
+  const servingToken = waitingOrServingQueue.find((t) => t.status === "serving");
+
+  const handleServiceChange = (serviceName) => {
+    if (selectedServices.includes(serviceName)) {
+      setSelectedServices(selectedServices.filter((item) => item !== serviceName));
+    } else {
+      setSelectedServices([...selectedServices, serviceName]);
+    }
+  };
+
+  const totalPrice = selectedServices.reduce((total, serviceName) => {
+    const item = servicesList.find((s) => s.name === serviceName);
+    return total + (item ? item.price : 0);
+  }, 0);
 
   async function handleBook(e) {
     e.preventDefault();
     setError("");
-    if (myActiveToken) {
-      setError("Ohoma dan token ekak thiyenawa. Eka ivara wenakan ahuwak book karanna baha.");
+
+    const existingValidToken = myTokensToday.find((t) => t.status !== "cancelled");
+    if (existingValidToken) {
+      setError("You have already booked an appointment for today. Only 1 appointment per day is allowed.");
       return;
     }
+
+    if (selectedServices.length === 0) {
+      setError("Please select at least one service.");
+      return;
+    }
+
     setBooking(true);
     try {
       await bookToken({
         uid: user.uid,
         customerName: user.displayName || user.email,
-        service,
+        service: selectedServices.join(", "),
+        totalPrice: totalPrice,
       });
+      setSelectedServices([]);
     } catch (err) {
-      setError("Book karanna baruna. Ayeth try karanna.");
+      setError("Could not book the appointment. Please try again.");
     }
     setBooking(false);
+  }
+
+  async function handleCancel() {
+    if (!myActiveToken) return;
+
+    const confirmed = window.confirm("Are you sure you want to cancel this appointment?");
+    if (!confirmed) return;
+
+    setCanceling(true);
+    setError("");
+    try {
+      await cancelToken(myActiveToken.id);
+    } catch (err) {
+      setError("Could not cancel appointment. Please try again.");
+    }
+    setCanceling(false);
   }
 
   return (
@@ -79,54 +146,113 @@ export default function CustomerPage() {
       <div className="content">
         {myActiveToken ? (
           <div className="ticket-hero">
-            <div className="label">Oyage Token Number</div>
+            <div className="label">Your Token Number</div>
             <div className="num">#{myActiveToken.tokenNumber}</div>
+
+            <div className="status" style={{ marginBottom: 10 }}>
+              <strong>Services:</strong> {myActiveToken.service} <br />
+              <strong>Total Cost:</strong> Rs. {myActiveToken.totalPrice || 0}
+            </div>
+
             <div className="status">
               {myActiveToken.status === "serving"
-                ? "Dan oyage pali - counter ekata yanna"
+                ? "It's your turn - please go to the counter"
                 : myActiveToken.status === "skipped"
-                ? "Skip unath, ilanga kenata passe ayeth queue ekata dala thiyenawa"
-                : servingToken
-                ? `Dan serve karanne #${servingToken.tokenNumber}. Queue eke oyage tana: ${myPosition}`
-                : `Queue eke oyage tana: ${myPosition}`}
+                  ? "You were skipped, but you've been placed back in the queue right after the next person"
+                  : servingToken
+                    ? `Now serving #${servingToken.tokenNumber}. Your position in queue: ${myPosition}`
+                    : `Your position in queue: ${myPosition}`}
             </div>
+
+            <button
+              onClick={handleCancel}
+              disabled={canceling}
+              className="btn"
+              style={{
+                marginTop: 15,
+                backgroundColor: "#d9534f",
+                color: "#fff",
+                border: "none",
+                padding: "8px 16px",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              {canceling ? "Cancelling..." : "Cancel Appointment"}
+            </button>
           </div>
         ) : (
-          <div className="form-row" style={{ background: "#f1e9d8" }}>
-            <form onSubmit={handleBook} style={{ display: "flex", gap: 12, flexWrap: "wrap", flex: 1 }}>
-              <div className="field" style={{ flex: 1, minWidth: 180 }}>
-                <label>Service eka</label>
-                <select value={service} onChange={(e) => setService(e.target.value)}>
-                  {SERVICES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+          <div className="form-row" style={{ background: "#f1e9d8", padding: 20, borderRadius: 8 }}>
+            <form onSubmit={handleBook} style={{ display: "flex", flexDirection: "column", gap: 15, width: "100%" }}>
+              <label style={{ fontWeight: "bold" }}>Select Services:</label>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+                {servicesList.map((s) => (
+                  <label key={s.name} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedServices.includes(s.name)}
+                      onChange={() => handleServiceChange(s.name)}
+                    />
+                    <span>{s.name} - <strong>Rs. {s.price}</strong></span>
+                  </label>
+                ))}
               </div>
-              <button className="btn brass" type="submit" disabled={booking} style={{ width: "auto", padding: "11px 22px" }}>
-                {booking ? "Booking..." : "Appointment ekak daanna"}
+
+              <div style={{ marginTop: 5, fontSize: "1.1em", fontWeight: "bold" }}>
+                Total Price: <span style={{ color: "#2b5329" }}>Rs. {totalPrice}</span>
+              </div>
+
+              <button className="btn brass" type="submit" disabled={booking} style={{ width: "fit-content", padding: "11px 22px" }}>
+                {booking ? "Booking..." : "Book Appointment"}
               </button>
             </form>
           </div>
         )}
+
         {error && <div className="error-msg" style={{ marginTop: 14 }}>{error}</div>}
 
-        <div className="section-title">Adha Queue Eka</div>
+        <div className="section-title" style={{ marginTop: 25 }}>Today&apos;s Queue</div>
         <div className="queue-list">
-          {queue.length === 0 && <div className="empty-note">Dan queue eke kisiveku naha.</div>}
+          {queue.length === 0 && <div className="empty-note">No one in the queue yet.</div>}
           {queue.map((t) => (
-            <div className={`queue-row ${t.customerUid === user.uid ? "me" : ""}`} key={t.id}>
+            <div
+              className={`queue-row ${t.customerUid === user.uid ? "me" : ""}`}
+              key={t.id}
+              style={t.status === "cancelled" ? { opacity: 0.85 } : {}}
+            >
               <div className="n">#{t.tokenNumber}</div>
               <div className="info">
-                <div className="svc">{t.service}</div>
-                <div className="meta">{t.customerName}</div>
+                <div className="svc" style={t.status === "cancelled" ? { textDecoration: "line-through", color: "#888" } : {}}>
+                  {t.service}
+                </div>
+                <div className="meta">
+                  {t.customerName} {t.totalPrice ? `(Rs. ${t.totalPrice})` : ""}
+                </div>
               </div>
-              <span className={`tag ${t.status}`}>
-                {t.status === "waiting" && "Balaporottu"}
-                {t.status === "serving" && "Dan Serve"}
-                {t.status === "skipped" && "Skip"}
-              </span>
+
+              {/* Status Tag Handling */}
+              {t.status === "cancelled" ? (
+                <span
+                  style={{
+                    backgroundColor: "#d9534f",
+                    color: "#ffffff",
+                    padding: "4px 10px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Cancelled
+                </span>
+              ) : (
+                <span className={`tag ${t.status}`}>
+                  {t.status === "waiting" && "Waiting"}
+                  {t.status === "serving" && "Now Serving"}
+                  {t.status === "skipped" && "Skipped"}
+                  {t.status === "done" && "Done"}
+                </span>
+              )}
             </div>
           ))}
         </div>

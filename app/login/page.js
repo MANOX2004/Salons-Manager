@@ -23,13 +23,13 @@ export default function LoginPage() {
       const snap = await getDoc(doc(db, "users", cred.user.uid));
       const role = snap.exists() ? snap.data().role : null;
       if (!role) {
-        setError("Account ekata role ekak set wela naha. Super-admin kenekuta call karanna.");
+        setError("This account has no role set yet. Please contact a super-admin.");
         setBusy(false);
         return;
       }
       router.replace(roleHomePath(role));
     } catch (err) {
-      setError("Email eka ho password eka wenas wela thiyanawa. Ayeth try karanna.");
+      setError("Incorrect email or password. Please try again.");
       setBusy(false);
     }
   }
@@ -37,11 +37,11 @@ export default function LoginPage() {
   return (
     <div className="page">
       <div className="brand">
-        salon<span>queue</span>
+        Salon<span>Yasi</span>
       </div>
       <div className="card">
-        <h1>Login</h1>
-        <p className="sub">Account ekata email saha password eka danna.</p>
+        <h1>Log in</h1>
+        <p className="sub">Enter your email and password to continue.</p>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="field">
@@ -65,11 +65,11 @@ export default function LoginPage() {
             />
           </div>
           <button className="btn" type="submit" disabled={busy}>
-            {busy ? "Logging in..." : "Login"}
+            {busy ? "Logging in..." : "Log in"}
           </button>
         </form>
         <div className="link-row">
-          Account ekak nathnam <a href="/signup">Sign up karanna</a>
+          Don&apos;t have an account? <a href="/signup">Sign up</a>
         </div>
       </div>
     </div>

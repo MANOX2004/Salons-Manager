@@ -1,78 +1,78 @@
 # Salon Queue
 
-Salon booking + live queue token system. Firebase (free Spark plan) + Vercel (free) walin witharak
-hadala thiyenne, cost ekak nathuwa.
+Salon booking + live queue token system, built entirely on Firebase (free Spark plan)
+and Vercel (free) — no cost.
 
 ## Roles
 
-- **super-admin** - okkoma balanna/karanna puluwan. Admin (salon owner) accounts hadanne mekenma.
-- **admin** - salon owner. Adha dawase queue eka manage karanawa (serve next, done, skip).
-- **customer** - signup form eken witharai account hadaganna puluwan. Appointment book karala,
-  token number ekak ganna, live queue eka balanna puluwan.
+- **super-admin** — can do everything. Creates admin (salon owner) accounts.
+- **admin** — the salon owner. Manages today's queue (serve next, mark done, skip).
+- **customer** — can only be created via the signup form. Books an appointment,
+  gets a token number, and sees the live queue.
 
 ## 1. Local setup
 
 ```
 npm install
-cp .env.local.example .env.local
 ```
 
-`.env.local` file eka open karala, Firebase Console -> Project Settings -> Your apps eke
-web app config eken values tika danna.
+`.env.local` should already contain your Firebase web app config (from
+Firebase Console -> Project Settings -> Your apps). If you need to recreate it,
+copy `.env.local.example` to `.env.local` and fill in the values.
 
 ```
 npm run dev
 ```
 
-http://localhost:3000 open karala test karanna.
+Open http://localhost:3000 to test.
 
-## 2. Mulinma Super-Admin Account eka hadana widiya
+## 2. Creating the first super-admin account
 
-Super-admin account eka public signup form eken hadanne naha (security risk). Me widiyata
-manual widiyata Firebase Console eken hadaganna:
+Super-admin accounts are never created through the public signup form (for
+security). Create the first one manually:
 
-1. `/signup` page eken account ekak hadaganna (mema oyage super-admin email/password eka
-   use karala). Meka default eka "customer" role ekakin hadenawa.
-2. Firebase Console -> Firestore Database -> `users` collection eke, dan hadapu account
-   ekage document eka find karaganna (email eken hoyaganna puluwan).
-3. Ema document eke `role` field eka `"customer"` walin `"super-admin"` walata edit karanna.
-4. Log out karala ayeth login karanna - dan `/super-admin` dashboard ekata redirect wenawa.
+1. Go to `/signup` and create an account with the email/password you want
+   to use as super-admin. This is created with role "customer" by default.
+2. In Firebase Console -> Firestore Database -> `users` collection, find the
+   document for the account you just created (search by email).
+3. Edit that document's `role` field from `"customer"` to `"super-admin"`.
+4. Log out and log back in — you'll now be redirected to `/super-admin`.
 
-Meken passe, ithuru admin (salon owner) accounts okkoma `/super-admin` dashboard eken thamai
-hadaganne - "Aluth Admin Ekak Hadanna" form eken.
+After that, create every other admin (salon owner) account from the
+`/super-admin` dashboard's "Create a New Admin" form.
 
-## 3. Firestore Security Rules danna widiya
+## 3. Setting up Firestore Security Rules
 
-Firebase Console -> Firestore Database -> Rules tab ekata gihin, me project eke `firestore.rules`
-file eke thiyena content eka copy karala paste karala Publish karanna.
+Firebase Console -> Firestore Database -> Rules tab, then paste the contents
+of this project's `firestore.rules` file and click Publish.
 
-## 4. Vercel ekata deploy karana widiya
+## 4. Deploying to Vercel
 
-1. Me code eka GitHub repo ekakata push karanna.
-2. vercel.com eke "Add New Project" -> repo eka import karanna.
-3. Settings -> Environment Variables walata `.env.local` eke tibba values okkoma danna.
-4. Deploy karanna. Ivara unaata passe URL ekak denawa - eka thamai live site eka.
+1. Push this code to a GitHub repo.
+2. On vercel.com, "Add New Project" -> import that repo.
+3. In Settings -> Environment Variables, add every value from `.env.local`.
+4. Deploy. You'll get a live URL once it finishes.
 
-## 5. Wena Salon Ekakata Copy Karana Widiya (Template widiyata)
+## 5. Reusing this as a template for another salon
 
-Firebase Free plan eka "per project" widiyata thamai denne, ekanisa salon ekakata Firebase
-project ekak one:
+Firebase's free plan is "per project", so each salon needs its own Firebase
+project:
 
-1. Aluth Firebase project ekak hadaganna (aluth Google/email account ekakin,
-   [Firebase Console](https://console.firebase.google.com) eken).
-2. Ee project eke Authentication (Email/Password) + Firestore + Web App register + Rules
-   README eke 1-3 steps widiyatama karanna.
-3. Me code eka aluth GitHub repo ekakata copy karala, aluth Vercel project ekakin deploy
-   karanna, aluth Firebase config eka Environment Variables walata danna.
-4. README eke 2 wana step eka anuwa aluth salon ekata super-admin account eka hadaganna.
+1. Create a new Firebase project (can use a different Google/email account),
+   from [Firebase Console](https://console.firebase.google.com).
+2. In that project, enable Authentication (Email/Password) + Firestore +
+   register a Web App + set up Rules — same as steps 1-3 above.
+3. Push this code to a new GitHub repo, deploy it as a new Vercel project,
+   and add that Firebase project's config as Environment Variables.
+4. Follow step 2 above to create that salon's first super-admin account.
 
-Me widiyata code eka wenas karanna oneme naha - salon ekak ekak ta wenama Firebase project +
-Vercel deployment ekak witharai one wenne.
+No code changes needed — each salon just needs its own Firebase project and
+Vercel deployment.
 
 ## Queue / Skip Logic
 
-- Customer kenek book karaddi, `tokenNumber` eka dawasakata serial widiyata (1, 2, 3...) denawa.
-- Admin "Serve Karanna Patan Ganna" click karama ilanga token eka "serving" wenawa.
-- Admin "Skip Karanna" click karama, ee token eka "skipped" section ekata yanawa. Admin ta
-  puluwan "Ayeth Queue Ekata Danna" click karala, ilanga (dan serve karana ho karapu) kenata
-  passema ayeth queue ekata danna - anthimatama yanne naha.
+- When a customer books, `tokenNumber` is assigned per day (1, 2, 3...).
+- Admin clicks "Start Serving" to move the next waiting token to "serving".
+- Admin clicks "Skip" to move a token to the Skipped section. Clicking
+  "Re-insert into Queue" places it right after whoever is next in line (or
+  currently being served) — not at the back of the whole queue.

@@ -72,12 +72,9 @@ export default function AdminPage() {
   async function handleSkip(token) {
     setBusyId(token.id);
     await setStatus(token.id, "skipped");
-    setBusyId(null);
-  }
-
-  async function handleCancel(token) {
-    setBusyId(token.id);
-    await setStatus(token.id, "cancelled");
+    // ivara wenkota me token eka "waiting" list eken bahi yanawa - eyata passe
+    // ilanga kena serve karala ivara unaata passe, "Ayeth Queue Ekata Danna" button
+    // eken thamai ithuru wenne
     setBusyId(null);
   }
 
@@ -169,20 +166,17 @@ export default function AdminPage() {
 
         {serving ? (
           <div className="ticket-hero">
-            <div className="label">Currently Serving</div>
+            <div className="label">Dan Serve Karanne</div>
             <div className="num">#{serving.tokenNumber}</div>
             <div className="status">
               {serving.service} — {serving.customerName}
             </div>
             <div className="actions-row" style={{ marginTop: 18 }}>
               <button className="btn brass" onClick={() => handleDone(serving)} disabled={busyId === serving.id}>
-                Done
+                Ivara Unaa (Done)
               </button>
               <button className="btn rust" onClick={() => handleSkip(serving)} disabled={busyId === serving.id}>
-                Skip
-              </button>
-              <button className="btn ghost" onClick={() => handleCancel(serving)} disabled={busyId === serving.id} style={{ background: "#7f1d1d", color: "#fff" }}>
-                Cancel
+                Skip Karanna
               </button>
             </div>
           </div>
@@ -207,7 +201,7 @@ export default function AdminPage() {
 
         {skippedTokens.length > 0 && (
           <>
-            <div className="section-title">Skipped Tokens</div>
+            <div className="section-title">Skip Unu Kena</div>
             <div className="queue-list">
               {skippedTokens.map((t) => (
                 <div className="queue-row" key={t.id}>
@@ -216,42 +210,28 @@ export default function AdminPage() {
                     <div className="svc">{t.service}</div>
                     <div className="meta">{t.customerName}</div>
                   </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button className="btn small ghost" onClick={() => handleReinsert(t)} disabled={busyId === t.id}>
-                      Reinsert
-                    </button>
-                    <button className="btn small rust" onClick={() => handleCancel(t)} disabled={busyId === t.id}>
-                      Cancel
-                    </button>
-                  </div>
+                  <button className="btn small ghost" onClick={() => handleReinsert(t)} disabled={busyId === t.id}>
+                    Ayeth Queue Ekata Danna
+                  </button>
                 </div>
               ))}
             </div>
           </>
         )}
 
-        <div className="section-title">Waiting Queue</div>
+        <div className="section-title">Balaporottu Waguwa</div>
         <div className="queue-list">
-          {waiting.length === 0 && <div className="empty-note">No waiting customers.</div>}
-          {waiting.map((t, i) => {
-            const estimatedMinutes = (i + 1) * AVERAGE_SERVICE_MINUTES;
-            return (
-              <div className="queue-row" key={t.id}>
-                <div className="n">#{t.tokenNumber}</div>
-                <div className="info">
-                  <div className="svc">{t.service}</div>
-                  <div className="meta">{t.customerName}</div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ fontSize: "12px", opacity: 0.7 }}>Est. wait: ~{estimatedMinutes} mins</span>
-                  <button className="btn small rust" onClick={() => handleCancel(t)} disabled={busyId === t.id} style={{ padding: "4px 8px", fontSize: "12px" }}>
-                    Cancel
-                  </button>
-                  <span className="tag waiting">{i === 0 ? "Next" : `Pos ${i + 1}`}</span>
-                </div>
+          {waiting.length === 0 && <div className="empty-note">Balaporottu wena kisiveku naha.</div>}
+          {waiting.map((t, i) => (
+            <div className="queue-row" key={t.id}>
+              <div className="n">#{t.tokenNumber}</div>
+              <div className="info">
+                <div className="svc">{t.service}</div>
+                <div className="meta">{t.customerName}</div>
               </div>
-            );
-          })}
+              <span className="tag waiting">{i === 0 ? "Ilanga" : `Tana ${i + 1}`}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
