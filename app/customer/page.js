@@ -19,7 +19,7 @@ export default function CustomerPage() {
   const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState("");
 
-  // Profile Edit Modal States
+  // Profile Edit States
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -38,7 +38,6 @@ export default function CustomerPage() {
     }
   }, [user, role, loading, router]);
 
-  // Firestore වෙතින් Customer Details Load කිරීම
   useEffect(() => {
     async function loadUserData() {
       if (!user) return;
@@ -60,7 +59,6 @@ export default function CustomerPage() {
     loadUserData();
   }, [user]);
 
-  // Services Listeners
   useEffect(() => {
     const unsubServices = onSnapshot(doc(db, "settings", "services"), (docSnap) => {
       if (docSnap.exists() && docSnap.data().items) {
@@ -79,13 +77,11 @@ export default function CustomerPage() {
     return () => unsubServices();
   }, []);
 
-  // Queue Listeners
   useEffect(() => {
     const unsub = listenQueueToday(setQueue);
     return () => unsub();
   }, []);
 
-  // File එක Base64 Text එකක් බවට හරවන Function එක
   const convertToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -136,7 +132,7 @@ export default function CustomerPage() {
 
     const existingValidToken = myTokensToday.find((t) => t.status !== "cancelled");
     if (existingValidToken) {
-      setError("You have already booked an appointment for today. Only 1 appointment per day is allowed.");
+      setError("You have already booked an appointment for today.");
       return;
     }
 
@@ -149,8 +145,6 @@ export default function CustomerPage() {
     try {
       await bookToken({
         uid: user.uid,
-        customerName: name || user.displayName || user.email,
-        customerPhotoURL: photoURL || "", // Booking එක කරන අවස්ථාවේ Profile Pic එක යවයි
         service: selectedServices.join(", "),
         totalPrice: totalPrice,
       });
@@ -177,7 +171,6 @@ export default function CustomerPage() {
     setCanceling(false);
   }
 
-  // Base64 හරහා Profile Update කිරීම
   async function handleProfileUpdate(e) {
     e.preventDefault();
     setUpdatingProfile(true);
@@ -195,7 +188,6 @@ export default function CustomerPage() {
         setPhotoURL(updatedPhotoURL);
       }
 
-      // 1. Firestore update
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {
         displayName: name,
@@ -203,14 +195,22 @@ export default function CustomerPage() {
         photoURL: updatedPhotoURL,
       });
 
-      // 2. Firebase Auth update
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
           displayName: name,
         });
       }
 
-      // 3. Password Update (Optional)
+      // Sync active tokens in current queue
+      const myActiveTokens = queue.filter((t) => t.customerUid === user.uid);
+      for (const t of myActiveTokens) {
+        const tokenDocRef = doc(db, "tokens", t.id);
+        await updateDoc(tokenDocRef, {
+          customerName: name,
+          customerPhotoURL: updatedPhotoURL,
+        });
+      }
+
       if (currentPassword && newPassword) {
         const credential = EmailAuthProvider.credential(user.email, currentPassword);
         await reauthenticateWithCredential(auth.currentUser, credential);
@@ -228,7 +228,6 @@ export default function CustomerPage() {
 
   return (
     <div className="shell">
-      {/* Topbar */}
       <div className="topbar">
         <div className="brand" style={{ marginBottom: 0 }}>
           salon<span>queue</span>
@@ -335,7 +334,7 @@ export default function CustomerPage() {
               key={t.id}
               style={{ display: "flex", alignItems: "center", gap: 12, opacity: t.status === "cancelled" ? 0.85 : 1 }}
             >
-              {/* Profile Picture (First Position) */}
+              {/* Profile Photo (Token Number එකට කලින්) */}
               {t.customerPhotoURL ? (
                 <img
                   src={t.customerPhotoURL}
@@ -361,7 +360,7 @@ export default function CustomerPage() {
                 </div>
               )}
 
-              {/* Token Number (Second Position) */}
+              {/* Token Number */}
               <div className="n">#{t.tokenNumber}</div>
 
               {/* Info Section */}
