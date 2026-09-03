@@ -4,23 +4,26 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
 import { listenQueueToday, setStatus, skipAndReinsert, bookToken } from "../../lib/queue";
+import { db } from "../../lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 const SERVICES = [
-  { name: "Hair Cut", duration: 20 },
-  { name: "Shave", duration: 15 },
-  { name: "Hair Colour", duration: 45 },
-  { name: "Facial", duration: 30 },
-  { name: "Hair Wash", duration: 15 },
+  { name: "Hair Cut" },
+  { name: "Shave" },
+  { name: "Hair Colour" },
+  { name: "Facial" },
+  { name: "Hair Wash" },
 ];
 
 export default function AdminPage() {
-  const { user, role, loading, logout } = useAuth();
+  const { user, role, loading } = useAuth();
   const router = useRouter();
   const [queue, setQueue] = useState([]);
   const [busyId, setBusyId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [adminPhotoURL, setAdminPhotoURL] = useState("");
 
   const [manualName, setManualName] = useState("");
   const [manualPhone, setManualPhone] = useState("");
@@ -36,6 +39,21 @@ export default function AdminPage() {
       router.replace("/login");
     }
   }, [user, role, loading, router]);
+
+  useEffect(() => {
+    async function loadAdminData() {
+      if (!user) return;
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists() && userDoc.data().photoURL) {
+          setAdminPhotoURL(userDoc.data().photoURL);
+        }
+      } catch (e) {
+        console.error("Error loading admin profile:", e);
+      }
+    }
+    loadAdminData();
+  }, [user]);
 
   useEffect(() => {
     const unsub = listenQueueToday((data) => {
@@ -64,7 +82,7 @@ export default function AdminPage() {
     const todayStr = new Date().toLocaleDateString();
 
     doc.setFontSize(18);
-    doc.setTextColor(212, 175, 55);
+    doc.setTextColor(184, 134, 59);
     doc.text("Salon Queue Management - Daily Report", 14, 20);
 
     doc.setFontSize(10);
@@ -91,9 +109,8 @@ export default function AdminPage() {
     autoTable(doc, {
       startY: 48,
       head: [["Token #", "Customer Name", "Phone", "Service", "Status"]],
-      body: tableRows,
-      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
+      headStyles: { fillColor: [31, 58, 46], textColor: [241, 233, 216] },
+      alternateRowStyles: { fillColor: [241, 233, 216] },
       styles: { fontSize: 9, cellPadding: 3 },
     });
 
@@ -102,8 +119,8 @@ export default function AdminPage() {
 
   if (loading || !user) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", color: "#f8fafc", padding: "16px" }}>
-        <p style={{ fontSize: "16px", textAlign: "center" }}>Loading Management Dashboard...</p>
+      <div className="shell">
+        <p style={{ color: "#6c6459", padding: 20 }}>Loading...</p>
       </div>
     );
   }
@@ -130,22 +147,13 @@ export default function AdminPage() {
     return { service: svc.name, count };
   });
 
-  const calculateWaitTime = (index) => {
-    let totalMinutes = 0;
-    for (let i = 0; i < index; i++) {
-      const match = SERVICES.find((s) => s.name === waiting[i].service);
-      totalMinutes += match ? match.duration : 20;
-    }
-    return totalMinutes;
-  };
-
-  const renderAvatar = (name, photoURL, size = 42) => {
+  const renderAvatar = (name, photoURL, size = 40) => {
     if (photoURL) {
       return (
         <img
           src={photoURL}
-          alt={name}
-          style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", border: "2px solid #d4af37", flexShrink: 0 }}
+          alt={name || "Customer"}
+          style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", border: "2px solid #b8863b", flexShrink: 0 }}
         />
       );
     }
@@ -156,14 +164,13 @@ export default function AdminPage() {
           width: size,
           height: size,
           borderRadius: "50%",
-          backgroundColor: "#334155",
-          color: "#fff",
+          backgroundColor: "#cbd5e1",
+          color: "#475569",
           display: "flex",
           alignItems: "center",
-          justify: "center",
-          fontWeight: "700",
+          justifyContent: "center",
+          fontWeight: "bold",
           fontSize: size * 0.4,
-          border: "2px solid #d4af37",
           flexShrink: 0,
         }}
       >
@@ -231,180 +238,127 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "'Inter', sans-serif", color: "#f8fafc", padding: "12px 10px" }}>
-      <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+    <div className="shell" style={{ minHeight: "100vh", backgroundColor: "#eee7d8", fontFamily: "'Inter', sans-serif" }}>
+      
+      {/* Topbar Header matching Customer page format with Avatar */}
+      <div className="topbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="brand" style={{ marginBottom: 0 }}>
+          Salon<span>Yasi</span>
+        </div>
 
-        {/* Top Navbar Header */}
-        <header style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", backgroundColor: "#1e293b", borderRadius: "12px", marginBottom: "16px", border: "1px solid #334155", gap: "12px", flexWrap: "wrap" }}>
-          <div style={{ fontSize: "20px", fontWeight: "800", letterSpacing: "-0.5px" }}>
-            salon<span style={{ color: "#d4af37" }}>queue</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px" }}>
-            <span style={{ color: "#94a3b8", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              <strong style={{ color: "#f8fafc" }}>{user.displayName || user.email}</strong>
-            </span>
-            <button
-              onClick={logout}
-              style={{ background: "#ef444422", color: "#f87171", border: "1px solid #ef444444", padding: "6px 12px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "12px" }}
-            >
-              Logout
-            </button>
-          </div>
-        </header>
-
-        {/* Analytics & Overview Dashboard Card */}
-        <section style={{ backgroundColor: "#1e293b", borderRadius: "16px", padding: "16px", marginBottom: "16px", border: "1px solid #334155" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-            <div>
-              <h2 style={{ fontSize: "18px", fontWeight: "700", margin: 0 }}>Today's Live Metrics</h2>
-              <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#94a3b8" }}>Real-time status of your salon</p>
-            </div>
-            <button
-              onClick={exportToPDF}
-              style={{ width: "100%", smWidth: "auto", backgroundColor: "#d4af37", color: "#0f172a", padding: "10px 14px", borderRadius: "8px", fontWeight: "700", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "13px" }}
-            >
-              📄 Export PDF Report
-            </button>
-          </div>
-
-          {/* Quick Metrics Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "10px", marginBottom: "16px" }}>
-            <div style={{ backgroundColor: "#0f172a", padding: "12px", borderRadius: "10px", border: "1px solid #334155" }}>
-              <span style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: "600" }}>Total</span>
-              <div style={{ fontSize: "22px", fontWeight: "800", marginTop: "2px" }}>{totalToday}</div>
-            </div>
-            <div style={{ backgroundColor: "#0f172a", padding: "12px", borderRadius: "10px", border: "1px solid #334155" }}>
-              <span style={{ fontSize: "10px", color: "#22c55e", textTransform: "uppercase", fontWeight: "600" }}>Done</span>
-              <div style={{ fontSize: "22px", fontWeight: "800", color: "#22c55e", marginTop: "2px" }}>{completedToday}</div>
-            </div>
-            <div style={{ backgroundColor: "#0f172a", padding: "12px", borderRadius: "10px", border: "1px solid #334155" }}>
-              <span style={{ fontSize: "10px", color: "#f59e0b", textTransform: "uppercase", fontWeight: "600" }}>In Queue</span>
-              <div style={{ fontSize: "22px", fontWeight: "800", color: "#f59e0b", marginTop: "2px" }}>{remainingToday}</div>
-            </div>
-          </div>
-
-          {/* Service Statistics Badges */}
-          <div style={{ fontSize: "12px", color: "#cbd5e1", borderTop: "1px solid #334155", paddingTop: "12px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <strong style={{ color: "#94a3b8", width: "100%" }}>Service Breakdown:</strong>
-            {serviceStats.map((s) => (
-              <span key={s.service} style={{ background: "#0f172a", padding: "4px 8px", borderRadius: "6px", border: "1px solid #334155", fontSize: "11px" }}>
-                {s.service}: <strong style={{ color: "#d4af37" }}>{s.count}</strong>
-              </span>
-            ))}
-          </div>
-        </section>
-
-        {/* Walk-in Customer Form */}
-        <section style={{ backgroundColor: "#1e293b", padding: "16px", borderRadius: "16px", marginBottom: "16px", border: "1px solid #334155" }}>
-          <h3 style={{ fontSize: "15px", fontWeight: "700", marginBottom: "12px", color: "#f8fafc" }}>➕ Add Walk-in Customer</h3>
-          <form onSubmit={handleManualBooking} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <input
-              type="text"
-              placeholder="Customer Name *"
-              value={manualName}
-              onChange={(e) => setManualName(e.target.value)}
-              style={{ width: "100%", padding: "12px", borderRadius: "8px", backgroundColor: "#0f172a", border: "1px solid #334155", color: "#fff", outline: "none", fontSize: "14px" }}
-              required
+        {/* Profile Avatar Button */}
+        <div
+          onClick={() => router.push("/admin/profile")}
+          style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+          title="Go to Admin Profile Settings"
+        >
+          {adminPhotoURL || user.photoURL ? (
+            <img
+              src={adminPhotoURL || user.photoURL}
+              alt="Admin Profile"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                objectFit: "cover",
+                border: "2px solid #e4ddc7",
+              }}
             />
-            <input
-              type="text"
-              placeholder="Phone Number (Optional)"
-              value={manualPhone}
-              onChange={(e) => setManualPhone(e.target.value)}
-              style={{ width: "100%", padding: "12px", borderRadius: "8px", backgroundColor: "#0f172a", border: "1px solid #334155", color: "#fff", outline: "none", fontSize: "14px" }}
-            />
-            <select
-              value={manualService}
-              onChange={(e) => setManualService(e.target.value)}
-              style={{ width: "100%", padding: "12px", borderRadius: "8px", backgroundColor: "#0f172a", border: "1px solid #334155", color: "#fff", outline: "none", fontSize: "14px" }}
+          ) : (
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                background: "#4a5568",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: "bold",
+                fontSize: 16,
+                border: "2px solid #e4ddc7",
+              }}
             >
-              {SERVICES.map((s) => (
-                <option key={s.name} value={s.name}>
-                  {s.name} ({s.duration} mins)
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              disabled={manualLoading}
-              style={{ width: "100%", padding: "12px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "14px" }}
-            >
-              {manualLoading ? "Adding..." : "+ Add to Queue"}
-            </button>
-          </form>
-          {manualError && <div style={{ marginTop: "8px", color: "#ef4444", fontSize: "12px" }}>{manualError}</div>}
-        </section>
+              {user.displayName ? user.displayName.charAt(0).toUpperCase() : "A"}
+            </div>
+          )}
+        </div>
+      </div>
 
-        {/* Serving Now Spotlight Box */}
+      <div className="content" style={{ maxWidth: "960px", margin: "0 auto", padding: "24px 16px 60px" }}>
+
+        {/* 1. Serving Now Spotlight Hero Box (Most Important) */}
         {serving ? (
           <section
             style={{
-              background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-              padding: "20px 16px",
-              borderRadius: "16px",
-              border: "2px solid #d4af37",
-              boxShadow: "0 8px 20px rgba(0,0,0,0.4)",
-              marginBottom: "20px",
+              backgroundColor: "#1f3a2e",
+              padding: "24px 20px",
+              borderRadius: "10px",
+              border: "2px solid #b8863b",
+              boxShadow: "0 8px 25px rgba(20, 39, 32, 0.4)",
+              marginBottom: "24px",
               textAlign: "center",
               position: "relative",
+              color: "#f1e9d8",
             }}
           >
-            <span style={{ position: "absolute", top: "12px", right: "12px", background: "#22c55e", color: "#ffffff", padding: "5px 12px", borderRadius: "20px", fontSize: "11px", fontWeight: "800", letterSpacing: "0.5px", display: "inline-flex", alignItems: "center", gap: "6px", boxShadow: "0 0 12px rgba(34, 197, 94, 0.5)" }}>
+            <span style={{ position: "absolute", top: "14px", right: "14px", backgroundColor: "#28a745", color: "#ffffff", padding: "5px 12px", borderRadius: "20px", fontSize: "11px", fontWeight: "800", letterSpacing: "0.5px", display: "inline-flex", alignItems: "center", gap: "6px", boxShadow: "0 0 10px rgba(40, 167, 69, 0.5)" }}>
               <span className="pulse-green-dot" style={{ backgroundColor: "#ffffff" }}></span> ✂️ CUTTING
             </span>
 
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", marginBottom: "12px", marginTop: "12px" }}>
-              {renderAvatar(serving.customerName, serving.photoURL, 56)}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", marginBottom: "14px", marginTop: "10px" }}>
+              {renderAvatar(serving.customerName, serving.customerPhotoURL || serving.photoURL, 58)}
               <div>
-                <h3 style={{ fontSize: "20px", fontWeight: "800", margin: 0 }}>{serving.customerName}</h3>
-                <p style={{ margin: "2px 0 0 0", color: "#d4af37", fontSize: "13px", fontWeight: "600" }}>{serving.service}</p>
-                {serving.phone && <span style={{ fontSize: "12px", color: "#94a3b8" }}>📞 {serving.phone}</span>}
+                <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "22px", fontWeight: "700", margin: 0, color: "#f1e9d8" }}>{serving.customerName}</h3>
+                <p style={{ margin: "4px 0 0 0", color: "#b8863b", fontSize: "14px", fontWeight: "600" }}>{serving.service}</p>
+                {serving.phone && <span style={{ fontSize: "13px", color: "#b9c9bd" }}>📞 {serving.phone}</span>}
               </div>
             </div>
 
-            <div style={{ margin: "12px 0" }}>
-              <div style={{ fontSize: "10px", color: "#94a3b8", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: "700" }}>Token Number</div>
-              <div style={{ fontSize: "48px", fontWeight: "900", color: "#f59e0b", lineHeight: "1" }}>#{serving.tokenNumber}</div>
+            <div style={{ margin: "14px 0" }}>
+              <div style={{ fontSize: "11px", color: "#b9c9bd", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: "700" }}>Token Number</div>
+              <div style={{ fontFamily: "'Fraunces', serif", fontSize: "56px", fontWeight: "800", color: "#b8863b", lineHeight: "1" }}>#{serving.tokenNumber}</div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "16px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "18px" }}>
               <button
                 onClick={() => handleDone(serving)}
                 disabled={busyId === serving.id}
-                style={{ width: "100%", padding: "12px", backgroundColor: "#22c55e", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
+                style={{ width: "100%", padding: "12px", backgroundColor: "#28a745", color: "#ffffff", border: "none", borderRadius: "4px", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
               >
                 ✓ Mark Completed
               </button>
               <button
                 onClick={() => handleSkip(serving)}
                 disabled={busyId === serving.id}
-                style={{ width: "100%", padding: "10px", backgroundColor: "#f97316", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", fontSize: "13px", cursor: "pointer" }}
+                style={{ width: "100%", padding: "10px", backgroundColor: "#b8863b", color: "#241a09", border: "none", borderRadius: "4px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}
               >
                 Skip Token
               </button>
             </div>
           </section>
         ) : (
-          <section style={{ backgroundColor: "#1e293b", padding: "16px", borderRadius: "16px", border: "1px solid #334155", marginBottom: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
+          <section style={{ backgroundColor: "#f1e9d8", padding: "20px", borderRadius: "8px", border: "1px solid #dfd2b4", marginBottom: "24px", display: "flex", flexDirection: "column", gap: "14px" }}>
             <div>
               {waiting.length > 0 ? (
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  {renderAvatar(waiting[0].customerName, waiting[0].photoURL, 40)}
+                  {renderAvatar(waiting[0].customerName, waiting[0].customerPhotoURL || waiting[0].photoURL, 44)}
                   <div>
-                    <div style={{ fontWeight: "700", fontSize: "15px" }}>Next Up: #{waiting[0].tokenNumber}</div>
-                    <div style={{ fontSize: "12px", color: "#94a3b8" }}>
-                      {waiting[0].customerName} • <span style={{ color: "#d4af37" }}>{waiting[0].service}</span>
+                    <div style={{ fontWeight: "700", fontSize: "16px", color: "#142720" }}>Next Up: #{waiting[0].tokenNumber}</div>
+                    <div style={{ fontSize: "13px", color: "#6c6459" }}>
+                      {waiting[0].customerName} • <span style={{ color: "#96692a", fontWeight: "600" }}>{waiting[0].service}</span>
                     </div>
                   </div>
                 </div>
               ) : (
-                <span style={{ color: "#94a3b8", fontSize: "14px", textAlign: "center", display: "block" }}>No active customers waiting in queue.</span>
+                <span style={{ color: "#6c6459", fontSize: "14px", textAlign: "center", display: "block" }}>No active customers waiting in queue.</span>
               )}
             </div>
             {waiting.length > 0 && (
               <button
                 onClick={handleServeNext}
-                style={{ width: "100%", padding: "12px", backgroundColor: "#d4af37", color: "#0f172a", border: "none", borderRadius: "8px", fontWeight: "800", cursor: "pointer", fontSize: "14px" }}
+                style={{ width: "100%", padding: "12px", backgroundColor: "#b8863b", color: "#241a09", border: "none", borderRadius: "4px", fontWeight: "800", cursor: "pointer", fontSize: "14px" }}
               >
                 Start Serving Next ▶
               </button>
@@ -412,27 +366,68 @@ export default function AdminPage() {
           </section>
         )}
 
-        {/* Skipped Tokens Section */}
+        {/* 2. Add Walk-in Customer Form */}
+        <section style={{ backgroundColor: "#f1e9d8", padding: "20px", borderRadius: "8px", marginBottom: "24px", border: "1px solid #dfd2b4", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
+          <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", fontWeight: "600", marginBottom: "14px", color: "#142720", marginTop: 0 }}>➕ Add Walk-in Customer</h3>
+          <form onSubmit={handleManualBooking} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <input
+              type="text"
+              placeholder="Customer Name *"
+              value={manualName}
+              onChange={(e) => setManualName(e.target.value)}
+              style={{ width: "100%", padding: "11px 14px", borderRadius: "4px", backgroundColor: "#ffffff", border: "1.5px solid #dfd2b4", color: "#211d16", outline: "none", fontSize: "14px" }}
+              required
+            />
+            <input
+              type="text"
+              placeholder="Phone Number (Optional)"
+              value={manualPhone}
+              onChange={(e) => setManualPhone(e.target.value)}
+              style={{ width: "100%", padding: "11px 14px", borderRadius: "4px", backgroundColor: "#ffffff", border: "1.5px solid #dfd2b4", color: "#211d16", outline: "none", fontSize: "14px" }}
+            />
+            <select
+              value={manualService}
+              onChange={(e) => setManualService(e.target.value)}
+              style={{ width: "100%", padding: "11px 14px", borderRadius: "4px", backgroundColor: "#ffffff", border: "1.5px solid #dfd2b4", color: "#211d16", outline: "none", fontSize: "14px" }}
+            >
+              {SERVICES.map((s) => (
+                <option key={s.name} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              disabled={manualLoading}
+              style={{ width: "100%", padding: "12px", backgroundColor: "#1f3a2e", color: "#f1e9d8", border: "none", borderRadius: "4px", fontWeight: "700", cursor: "pointer", fontSize: "14px" }}
+            >
+              {manualLoading ? "Adding..." : "+ Add to Queue"}
+            </button>
+          </form>
+          {manualError && <div style={{ marginTop: "10px", color: "#7a2b1e", backgroundColor: "#fbe3de", padding: "8px 12px", borderRadius: "4px", fontSize: "13px" }}>{manualError}</div>}
+        </section>
+
+        {/* 3. Skipped Tokens Section */}
         {skippedTokens.length > 0 && (
-          <section style={{ marginBottom: "20px" }}>
-            <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#f97316", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <section style={{ marginBottom: "24px" }}>
+            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "16px", fontWeight: "700", color: "#9c4a3b", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
               ⚠️ Skipped Tokens ({skippedTokens.length})
             </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {skippedTokens.map((t) => (
-                <div key={t.id} style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "12px", backgroundColor: "#1e293b", borderRadius: "12px", border: "1px solid #334155" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    {renderAvatar(t.customerName, t.photoURL, 36)}
+                <div key={t.id} style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "14px", backgroundColor: "#f1e9d8", borderRadius: "8px", border: "1px solid #dfd2b4" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    {renderAvatar(t.customerName, t.customerPhotoURL || t.photoURL, 38)}
                     <div>
-                      <div style={{ fontWeight: "700", fontSize: "14px" }}>#{t.tokenNumber} - {t.customerName}</div>
-                      <div style={{ fontSize: "12px", color: "#94a3b8" }}>{t.service}</div>
+                      <div style={{ fontWeight: "700", fontSize: "15px", color: "#142720" }}>#{t.tokenNumber} - {t.customerName}</div>
+                      <div style={{ fontSize: "13px", color: "#6c6459" }}>{t.service}</div>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: "8px", width: "100%" }}>
-                    <button onClick={() => handleReinsert(t)} disabled={busyId === t.id} style={{ flex: 1, padding: "8px", backgroundColor: "#334155", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600" }}>
+                  <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+                    <button onClick={() => handleReinsert(t)} disabled={busyId === t.id} style={{ flex: 1, padding: "9px", backgroundColor: "#1f3a2e", color: "#f1e9d8", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "13px", fontWeight: "600" }}>
                       Re-insert
                     </button>
-                    <button onClick={() => handleCancel(t)} disabled={busyId === t.id} style={{ flex: 1, padding: "8px", backgroundColor: "#ef444422", color: "#f87171", border: "1px solid #ef444444", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600" }}>
+                    <button onClick={() => handleCancel(t)} disabled={busyId === t.id} style={{ flex: 1, padding: "9px", backgroundColor: "#d9534f", color: "#ffffff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "13px", fontWeight: "600" }}>
                       Cancel
                     </button>
                   </div>
@@ -442,15 +437,15 @@ export default function AdminPage() {
           </section>
         )}
 
-        {/* Main Active Queue List */}
-        <section>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "12px" }}>
+        {/* 4. Main Active Queue List (Matches Customer Page list format) */}
+        <section style={{ marginBottom: "24px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: "700", margin: 0 }}>
+              <h3 className="section-title" style={{ margin: 0 }}>
                 Queue List ({activeQueue.length})
               </h3>
               {serving && (
-                <span style={{ fontSize: "12px", color: "#4ade80", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "13px", color: "#28a745", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "6px" }}>
                   <span className="pulse-green-dot"></span> 1 Cutting Now
                 </span>
               )}
@@ -461,56 +456,55 @@ export default function AdminPage() {
                 placeholder="Search name or token..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#1e293b", border: "1px solid #334155", color: "#fff", fontSize: "13px", outline: "none" }}
+                style={{ width: "100%", padding: "11px 14px", borderRadius: "4px", backgroundColor: "#ffffff", border: "1.5px solid #dfd2b4", color: "#211d16", fontSize: "14px", outline: "none" }}
               />
             )}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div className="queue-list" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {filteredActiveQueue.length === 0 && (
-              <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", backgroundColor: "#1e293b", borderRadius: "12px", border: "1px solid #334155", fontSize: "13px" }}>
+              <div className="empty-note" style={{ textAlign: "center", padding: "20px" }}>
                 {searchTerm ? "No matching customers found." : "No customers currently in the queue."}
               </div>
             )}
             {filteredActiveQueue.map((t) => {
               const isServing = t.status === "serving";
-              const waitingIndex = waiting.findIndex((item) => item.id === t.id);
 
               return (
                 <div
                   key={t.id}
+                  className="queue-row"
                   style={{
                     display: "flex",
-                    flexDirection: "column",
-                    gap: "10px",
-                    padding: "14px",
-                    backgroundColor: isServing ? "rgba(34, 197, 94, 0.12)" : "#1e293b",
-                    borderRadius: "12px",
-                    border: isServing ? "2px solid #22c55e" : "1px solid #334155",
-                    boxShadow: isServing ? "0 0 16px rgba(34, 197, 94, 0.3)" : "none",
-                    transition: "all 0.3s ease",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 16px",
+                    backgroundColor: isServing ? "rgba(40, 167, 69, 0.12)" : "#f1e9d8",
+                    borderRadius: "6px",
+                    border: isServing ? "2px solid #28a745" : "1px solid #dfd2b4",
+                    boxShadow: isServing ? "0 4px 15px rgba(40, 167, 69, 0.25)" : "none",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    {renderAvatar(t.customerName, t.photoURL, 42)}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: "700", fontSize: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span>#{t.tokenNumber} · {t.customerName}</span>
-                      </div>
-                      <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "2px" }}>
-                        <span style={{ color: "#d4af37", fontWeight: "600" }}>{t.service}</span>
-                        {!isServing && (
-                          <span> • Est: ~{calculateWaitTime(waitingIndex)} mins</span>
-                        )}
-                        {t.phone && <span> • 📞 {t.phone}</span>}
-                      </div>
-                    </div>
+                  {/* Customer Avatar */}
+                  {renderAvatar(t.customerName, t.customerPhotoURL || t.photoURL, 40)}
 
-                    {/* Status Badge */}
-                    {isServing ? (
+                  {/* Token Number */}
+                  <div className="n">#{t.tokenNumber}</div>
+
+                  {/* Customer Info */}
+                  <div className="info" style={{ flex: 1 }}>
+                    <div className="svc">{t.service}</div>
+                    <div className="meta">
+                      {t.customerName} {t.phone ? `(${t.phone})` : ""}
+                    </div>
+                  </div>
+
+                  {/* Status & Actions */}
+                  {isServing ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <span
                         style={{
-                          backgroundColor: "#22c55e",
+                          backgroundColor: "#28a745",
                           color: "#ffffff",
                           padding: "4px 0",
                           minWidth: "90px",
@@ -523,94 +517,66 @@ export default function AdminPage() {
                       >
                         Cutting
                       </span>
-                    ) : (
-                      <span
+                      <button
+                        onClick={() => handleDone(t)}
+                        disabled={busyId === t.id}
                         style={{
-                          backgroundColor: "#334155",
-                          color: "#cbd5e1",
-                          padding: "4px 10px",
-                          borderRadius: "6px",
-                          fontSize: "11px",
-                          fontWeight: "600",
+                          padding: "6px 12px",
+                          backgroundColor: "#28a745",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                        }}
+                      >
+                        ✓ Done
+                      </button>
+                      <button
+                        onClick={() => handleSkip(t)}
+                        disabled={busyId === t.id}
+                        style={{
+                          padding: "6px 12px",
+                          backgroundColor: "#b8863b",
+                          color: "#241a09",
+                          border: "none",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                        }}
+                      >
+                        Skip
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span
+                        className="tag waiting"
+                        style={{
+                          minWidth: "90px",
+                          textAlign: "center",
+                          display: "inline-block",
+                          padding: "4px 0",
+                          borderRadius: "4px",
+                          backgroundColor: "#e4dcc4",
+                          color: "#5c5138",
+                          fontSize: "12px",
+                          fontWeight: "bold",
                         }}
                       >
                         Waiting
                       </span>
-                    )}
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: isServing ? "1px solid rgba(34, 197, 94, 0.3)" : "1px solid #334155", paddingTop: "10px" }}>
-                    <span
-                      style={{
-                        padding: "4px 10px",
-                        backgroundColor: isServing ? "rgba(34, 197, 94, 0.2)" : "#0f172a",
-                        border: isServing ? "1px solid #22c55e" : "1px solid #334155",
-                        borderRadius: "6px",
-                        fontSize: "11px",
-                        color: isServing ? "#4ade80" : "#cbd5e1",
-                        fontWeight: "700",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                      }}
-                    >
-                      {isServing ? (
-                        <>
-                          <span className="pulse-green-dot"></span>
-                          Cutting (Currently Serving)
-                        </>
-                      ) : waitingIndex === 0 ? (
-                        "Next Up"
-                      ) : (
-                        `Position ${waitingIndex + 1}`
-                      )}
-                    </span>
-
-                    {isServing ? (
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button
-                          onClick={() => handleDone(t)}
-                          disabled={busyId === t.id}
-                          style={{
-                            padding: "6px 12px",
-                            backgroundColor: "#22c55e",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            fontSize: "12px",
-                            fontWeight: "700",
-                          }}
-                        >
-                          ✓ Complete
-                        </button>
-                        <button
-                          onClick={() => handleSkip(t)}
-                          disabled={busyId === t.id}
-                          style={{
-                            padding: "6px 12px",
-                            backgroundColor: "#f97316",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            fontSize: "12px",
-                            fontWeight: "600",
-                          }}
-                        >
-                          Skip
-                        </button>
-                      </div>
-                    ) : (
                       <button
                         onClick={() => handleCancel(t)}
                         disabled={busyId === t.id}
                         style={{
                           padding: "6px 12px",
-                          backgroundColor: "#ef444422",
-                          color: "#f87171",
-                          border: "1px solid #ef444444",
-                          borderRadius: "6px",
+                          backgroundColor: "#d9534f",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: "4px",
                           cursor: "pointer",
                           fontSize: "12px",
                           fontWeight: "600",
@@ -618,11 +584,53 @@ export default function AdminPage() {
                       >
                         Cancel
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* 5. Today's Live Metrics & Service Breakdown (Placed Last / Anthimatama) */}
+        <section style={{ backgroundColor: "#f1e9d8", borderRadius: "8px", padding: "20px", border: "1px solid #dfd2b4", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+            <div>
+              <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", fontWeight: "600", color: "#142720", margin: 0 }}>Today's Live Metrics</h2>
+              <p style={{ margin: "2px 0 0 0", fontSize: "13px", color: "#6c6459" }}>Daily statistics summary</p>
+            </div>
+            <button
+              onClick={exportToPDF}
+              style={{ backgroundColor: "#b8863b", color: "#241a09", padding: "9px 14px", borderRadius: "4px", fontWeight: "700", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}
+            >
+              📄 Export PDF Report
+            </button>
+          </div>
+
+          {/* Quick Metrics Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+            <div style={{ backgroundColor: "#e5dccb", padding: "14px", borderRadius: "6px", border: "1px solid #dfd2b4" }}>
+              <span style={{ fontSize: "11px", color: "#6c6459", textTransform: "uppercase", fontWeight: "700" }}>Total</span>
+              <div style={{ fontSize: "24px", fontWeight: "800", color: "#142720", marginTop: "2px" }}>{totalToday}</div>
+            </div>
+            <div style={{ backgroundColor: "#dcecdf", padding: "14px", borderRadius: "6px", border: "1px solid #b6d6bc" }}>
+              <span style={{ fontSize: "11px", color: "#1f3a2e", textTransform: "uppercase", fontWeight: "700" }}>Done</span>
+              <div style={{ fontSize: "24px", fontWeight: "800", color: "#28a745", marginTop: "2px" }}>{completedToday}</div>
+            </div>
+            <div style={{ backgroundColor: "#f7ecdc", padding: "14px", borderRadius: "6px", border: "1px solid #e6ceb0" }}>
+              <span style={{ fontSize: "11px", color: "#96692a", textTransform: "uppercase", fontWeight: "700" }}>In Queue</span>
+              <div style={{ fontSize: "24px", fontWeight: "800", color: "#b8863b", marginTop: "2px" }}>{remainingToday}</div>
+            </div>
+          </div>
+
+          {/* Service Statistics Badges */}
+          <div style={{ fontSize: "12px", color: "#211d16", borderTop: "1px solid #dfd2b4", paddingTop: "12px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <strong style={{ color: "#6c6459", width: "100%" }}>Service Breakdown:</strong>
+            {serviceStats.map((s) => (
+              <span key={s.service} style={{ backgroundColor: "#e5dccb", padding: "4px 10px", borderRadius: "4px", border: "1px solid #dfd2b4", fontSize: "12px", color: "#142720" }}>
+                {s.service}: <strong style={{ color: "#96692a" }}>{s.count}</strong>
+              </span>
+            ))}
           </div>
         </section>
 
