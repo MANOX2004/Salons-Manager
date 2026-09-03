@@ -117,7 +117,9 @@ export default function AdminPage() {
   const completedToday = doneTokens.length;
   const remainingToday = waiting.length + (serving ? 1 : 0);
 
-  const filteredWaiting = waiting.filter(
+  const activeQueue = serving ? [serving, ...waiting] : waiting;
+
+  const filteredActiveQueue = activeQueue.filter(
     (t) =>
       t.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.tokenNumber.toString().includes(searchTerm)
@@ -347,8 +349,8 @@ export default function AdminPage() {
               position: "relative",
             }}
           >
-            <span style={{ position: "absolute", top: "12px", right: "12px", background: "#22c55e", color: "#fff", padding: "3px 8px", borderRadius: "12px", fontSize: "10px", fontWeight: "800", letterSpacing: "0.5px" }}>
-              NOW SERVING
+            <span style={{ position: "absolute", top: "12px", right: "12px", background: "#22c55e", color: "#ffffff", padding: "5px 12px", borderRadius: "20px", fontSize: "11px", fontWeight: "800", letterSpacing: "0.5px", display: "inline-flex", alignItems: "center", gap: "6px", boxShadow: "0 0 12px rgba(34, 197, 94, 0.5)" }}>
+              <span className="pulse-green-dot" style={{ backgroundColor: "#ffffff" }}></span> ✂️ CUTTING
             </span>
 
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", marginBottom: "12px", marginTop: "12px" }}>
@@ -440,11 +442,20 @@ export default function AdminPage() {
           </section>
         )}
 
-        {/* Main Waiting Queue List */}
+        {/* Main Active Queue List */}
         <section>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "12px" }}>
-            <h3 style={{ fontSize: "16px", fontWeight: "700", margin: 0 }}>Waiting Queue ({waiting.length})</h3>
-            {waiting.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: "700", margin: 0 }}>
+                Queue List ({activeQueue.length})
+              </h3>
+              {serving && (
+                <span style={{ fontSize: "12px", color: "#4ade80", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <span className="pulse-green-dot"></span> 1 Cutting Now
+                </span>
+              )}
+            </div>
+            {activeQueue.length > 0 && (
               <input
                 type="text"
                 placeholder="Search name or token..."
@@ -455,40 +466,163 @@ export default function AdminPage() {
             )}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {filteredWaiting.length === 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {filteredActiveQueue.length === 0 && (
               <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", backgroundColor: "#1e293b", borderRadius: "12px", border: "1px solid #334155", fontSize: "13px" }}>
-                {searchTerm ? "No matching customers found." : "No customers currently waiting in the queue."}
+                {searchTerm ? "No matching customers found." : "No customers currently in the queue."}
               </div>
             )}
-            {filteredWaiting.map((t, i) => (
-              <div key={t.id} style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "12px", backgroundColor: "#1e293b", borderRadius: "12px", border: "1px solid #334155" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  {renderAvatar(t.customerName, t.photoURL, 38)}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: "700", fontSize: "14px" }}>
-                      #{t.tokenNumber} · {t.customerName}
+            {filteredActiveQueue.map((t) => {
+              const isServing = t.status === "serving";
+              const waitingIndex = waiting.findIndex((item) => item.id === t.id);
+
+              return (
+                <div
+                  key={t.id}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                    padding: "14px",
+                    backgroundColor: isServing ? "rgba(34, 197, 94, 0.12)" : "#1e293b",
+                    borderRadius: "12px",
+                    border: isServing ? "2px solid #22c55e" : "1px solid #334155",
+                    boxShadow: isServing ? "0 0 16px rgba(34, 197, 94, 0.3)" : "none",
+                    transition: "all 0.3s ease",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    {renderAvatar(t.customerName, t.photoURL, 42)}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: "700", fontSize: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span>#{t.tokenNumber} · {t.customerName}</span>
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "2px" }}>
+                        <span style={{ color: "#d4af37", fontWeight: "600" }}>{t.service}</span>
+                        {!isServing && (
+                          <span> • Est: ~{calculateWaitTime(waitingIndex)} mins</span>
+                        )}
+                        {t.phone && <span> • 📞 {t.phone}</span>}
+                      </div>
                     </div>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
-                      <span style={{ color: "#d4af37" }}>{t.service}</span> • Est: ~{calculateWaitTime(i)} mins
-                    </div>
+
+                    {/* Status Badge */}
+                    {isServing ? (
+                      <span
+                        style={{
+                          backgroundColor: "#22c55e",
+                          color: "#ffffff",
+                          padding: "4px 0",
+                          minWidth: "90px",
+                          textAlign: "center",
+                          display: "inline-block",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        Cutting
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          backgroundColor: "#334155",
+                          color: "#cbd5e1",
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                          fontWeight: "600",
+                        }}
+                      >
+                        Waiting
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: isServing ? "1px solid rgba(34, 197, 94, 0.3)" : "1px solid #334155", paddingTop: "10px" }}>
+                    <span
+                      style={{
+                        padding: "4px 10px",
+                        backgroundColor: isServing ? "rgba(34, 197, 94, 0.2)" : "#0f172a",
+                        border: isServing ? "1px solid #22c55e" : "1px solid #334155",
+                        borderRadius: "6px",
+                        fontSize: "11px",
+                        color: isServing ? "#4ade80" : "#cbd5e1",
+                        fontWeight: "700",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      {isServing ? (
+                        <>
+                          <span className="pulse-green-dot"></span>
+                          Cutting (Currently Serving)
+                        </>
+                      ) : waitingIndex === 0 ? (
+                        "Next Up"
+                      ) : (
+                        `Position ${waitingIndex + 1}`
+                      )}
+                    </span>
+
+                    {isServing ? (
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                          onClick={() => handleDone(t)}
+                          disabled={busyId === t.id}
+                          style={{
+                            padding: "6px 12px",
+                            backgroundColor: "#22c55e",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            fontWeight: "700",
+                          }}
+                        >
+                          ✓ Complete
+                        </button>
+                        <button
+                          onClick={() => handleSkip(t)}
+                          disabled={busyId === t.id}
+                          style={{
+                            padding: "6px 12px",
+                            backgroundColor: "#f97316",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                          }}
+                        >
+                          Skip
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleCancel(t)}
+                        disabled={busyId === t.id}
+                        style={{
+                          padding: "6px 12px",
+                          backgroundColor: "#ef444422",
+                          color: "#f87171",
+                          border: "1px solid #ef444444",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #334155", paddingTop: "8px" }}>
-                  <span style={{ padding: "3px 8px", backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "6px", fontSize: "11px", color: "#cbd5e1", fontWeight: "600" }}>
-                    {i === 0 ? "Next Up" : `Position ${i + 1}`}
-                  </span>
-                  <button
-                    onClick={() => handleCancel(t)}
-                    disabled={busyId === t.id}
-                    style={{ padding: "6px 12px", backgroundColor: "#ef444422", color: "#f87171", border: "1px solid #ef444444", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600" }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 

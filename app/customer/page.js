@@ -264,98 +264,124 @@ export default function CustomerPage() {
         <div className="section-title" style={{ marginTop: 25 }}>Today&apos;s Queue</div>
         <div className="queue-list">
           {queue.length === 0 && <div className="empty-note">No one in the queue yet.</div>}
-          {queue.map((t) => (
-            <div
-              className={`queue-row ${t.customerUid === user.uid ? "me" : ""}`}
-              key={t.id}
-              style={{ display: "flex", alignItems: "center", gap: 12, opacity: t.status === "cancelled" ? 0.85 : 1 }}
-            >
-              {t.customerPhotoURL ? (
-                <img
-                  src={t.customerPhotoURL}
-                  alt={t.customerName}
-                  style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: "50%",
-                    background: "#cbd5e1",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 16,
-                    fontWeight: "bold",
-                    color: "#475569",
-                  }}
-                >
-                  {t.customerName ? t.customerName.charAt(0).toUpperCase() : "U"}
-                </div>
-              )}
+          {queue.map((t) => {
+            const isServing = t.status === "serving";
+            return (
+              <div
+                className={`queue-row ${t.customerUid === user.uid ? "me" : ""}`}
+                key={t.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  opacity: t.status === "cancelled" ? 0.85 : 1,
+                  border: isServing ? "2px solid #28a745" : undefined,
+                  backgroundColor: isServing ? "rgba(40, 167, 69, 0.12)" : undefined,
+                  boxShadow: isServing ? "0 0 10px rgba(40, 167, 69, 0.25)" : undefined,
+                }}
+              >
+                {t.customerPhotoURL ? (
+                  <img
+                    src={t.customerPhotoURL}
+                    alt={t.customerName}
+                    style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      background: "#cbd5e1",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 16,
+                      fontWeight: "bold",
+                      color: "#475569",
+                    }}
+                  >
+                    {t.customerName ? t.customerName.charAt(0).toUpperCase() : "U"}
+                  </div>
+                )}
 
-              <div className="n">#{t.tokenNumber}</div>
+                <div className="n">#{t.tokenNumber}</div>
 
-              <div className="info" style={{ flex: 1 }}>
-                <div className="svc" style={t.status === "cancelled" ? { textDecoration: "line-through", color: "#888" } : {}}>
-                  {t.service}
+                <div className="info" style={{ flex: 1 }}>
+                  <div className="svc" style={t.status === "cancelled" ? { textDecoration: "line-through", color: "#888" } : {}}>
+                    {t.service}
+                  </div>
+                  <div className="meta">
+                    {t.customerName} {t.totalPrice ? `(Rs. ${t.totalPrice})` : ""}
+                  </div>
                 </div>
-                <div className="meta">
-                  {t.customerName} {t.totalPrice ? `(Rs. ${t.totalPrice})` : ""}
-                </div>
+
+                {t.status === "cancelled" ? (
+                  <span
+                    style={{
+                      backgroundColor: "#d9534f",
+                      color: "#ffffff",
+                      padding: "4px 0",
+                      minWidth: "90px",
+                      textAlign: "center",
+                      display: "inline-block",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Cancelled
+                  </span>
+                ) : t.status === "done" ? (
+                  <span
+                    style={{
+                      backgroundColor: "#28a745",
+                      color: "#ffffff",
+                      padding: "4px 0",
+                      minWidth: "90px",
+                      textAlign: "center",
+                      display: "inline-block",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Completed
+                  </span>
+                ) : t.status === "serving" ? (
+                  <span
+                    style={{
+                      backgroundColor: "#28a745",
+                      color: "#ffffff",
+                      padding: "4px 0",
+                      minWidth: "90px",
+                      textAlign: "center",
+                      display: "inline-block",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Cutting
+                  </span>
+                ) : (
+                  <span
+                    className={`tag ${t.status}`}
+                    style={{
+                      minWidth: "90px",
+                      textAlign: "center",
+                      display: "inline-block",
+                      padding: "4px 0",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    {t.status === "waiting" && "Waiting"}
+                    {t.status === "skipped" && "Skipped"}
+                  </span>
+                )}
               </div>
-
-              {t.status === "cancelled" ? (
-                <span
-                  style={{
-                    backgroundColor: "#d9534f",
-                    color: "#ffffff",
-                    padding: "4px 0",
-                    minWidth: "90px",
-                    textAlign: "center",
-                    display: "inline-block",
-                    borderRadius: "4px",
-                    fontSize: "12px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Cancelled
-                </span>
-              ) : t.status === "done" ? (
-                <span
-                  style={{
-                    backgroundColor: "#28a745",
-                    color: "#ffffff",
-                    padding: "4px 0",
-                    minWidth: "90px",
-                    textAlign: "center",
-                    display: "inline-block",
-                    borderRadius: "4px",
-                    fontSize: "12px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Completed
-                </span>
-              ) : (
-                <span
-                  className={`tag ${t.status}`}
-                  style={{
-                    minWidth: "90px",
-                    textAlign: "center",
-                    display: "inline-block",
-                    padding: "4px 0",
-                    borderRadius: "4px",
-                  }}
-                >
-                  {t.status === "waiting" && "Waiting"}
-                  {t.status === "serving" && "Now Serving"}
-                  {t.status === "skipped" && "Skipped"}
-                </span>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
